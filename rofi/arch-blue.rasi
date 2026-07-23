@@ -1,0 +1,101 @@
+/* Custom Rofi Theme */
+/* Arch + Productivity + Anime/Gaming balance */
+
+/* Farben von aether (wird bei jedem Theme-Wechsel neu generiert) */
+@import "~/.config/rofi/aether-colors.rasi"
+
+* {
+    background-color: transparent;
+    text-color: @fg;
+
+    margin: 0;
+    padding: 0;
+    spacing: 0;
+}
+
+window {
+    width: 720px;
+    border: 2px;
+    border-color: @accent;
+    border-radius: 18px;
+    background-color: @bg;
+    location: center;
+}
+
+mainbox {
+    padding: 18px;
+    background-color: transparent;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    padding: 14px 16px;
+    margin: 0 0 14px 0;
+    border-radius: 14px;
+    background-color: @bg-alt;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    enabled: true;
+    padding: 0 12px 0 0;
+    text-color: @accent;
+    font: "JetBrainsMono Nerd Font Bold 12";
+}
+
+entry {
+    placeholder: "Search apps, commands, windows...";
+    placeholder-color: @muted;
+    text-color: @fg;
+    cursor-color: @accent;
+}
+
+listview {
+    lines: 8;
+    columns: 1;
+    fixed-height: false;
+    dynamic: true;
+    scrollbar: false;
+    background-color: transparent;
+}
+
+element {
+    padding: 12px 14px;
+    margin: 3px 0;
+    border-radius: 12px;
+    background-color: transparent;
+    text-color: @fg;
+}
+
+element selected {
+    background-color: @accent;
+    text-color: #0f111a;
+}
+
+element urgent {
+    background-color: @urgent;
+    text-color: #0f111a;
+}
+
+element-icon {
+    size: 24px;
+    margin: 0 12px 0 0;
+}
+
+element-text {
+    vertical-align: 0.5;
+}
+
+mode-switcher {
+    enabled: false;
+}
+
+message {
+    padding: 12px;
+    border-radius: 12px;
+    background-color: @bg-alt;
+}
+
+textbox {
+    text-color: @fg;
+}

@@ -1,0 +1,108 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "spacing": 6,
+  "modules-left": [
+    "custom/arch",
+    "hyprland/workspaces"
+  ],
+  "modules-center": [
+    "hyprland/window"
+  ],
+  "modules-right": [
+    "tray",
+    "cpu",
+    "memory",
+    "disk",
+    "temperature",
+    "custom/gpu",
+    "network",
+    "pulseaudio",
+    "clock"
+  ],
+  "custom/arch": {
+    "format": "",
+    "tooltip": false
+  },
+  "hyprland/workspaces": {
+    "format": "{icon}",
+    "format-icons": {
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "9",
+      "active": "",
+      "default": ""
+    },
+    "persistent-workspaces": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": [],
+      "6": [],
+      "7": [],
+      "8": [],
+      "9": []
+    }
+  },
+  "hyprland/window": {
+    "format": "{}",
+    "max-length": 70,
+    "separate-outputs": true
+  },
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8
+  },
+  "cpu": {
+    "format": " {usage}%",
+    "tooltip": true,
+    "interval": 2
+  },
+  "memory": {
+    "format": " {}%",
+    "tooltip": true,
+    "interval": 2
+  },
+  "temperature": {
+    "format": " {temperatureC}°C",
+    "critical-threshold": 80,
+    "tooltip": false
+  },
+  "network": {
+    "format-wifi": " {essid}",
+    "format-ethernet": "󰈀 LAN",
+    "format-disconnected": "󰤭 offline",
+    "tooltip": true
+  },
+  "pulseaudio": {
+    "format": " {volume}%",
+    "format-muted": " muted",
+    "scroll-step": 5,
+    "on-click": "pavucontrol"
+  },
+  "clock": {
+    "format": " {:%d.%m. %H:%M}",
+    "tooltip-format": "<big>{:%A, %d. %B %Y}</big>\n<tt><small>{calendar}</small></tt>"
+  },
+  "disk": {
+    "interval": 30,
+    "path": "/",
+    "format": " {percentage_used}%",
+    "tooltip": true,
+    "tooltip-format": "Disk /\\nUsed: {used}\\nFree: {free}\\nTotal: {total}"
+  },
+  "custom/gpu": {
+    "exec": "nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits | awk -F ', ' '{printf \"󰢮 %s%% %s°C %s/%sMiB\", $1, $2, $3, $4}'",
+    "interval": 3,
+    "return-type": "text",
+    "tooltip": true
+  }
+}

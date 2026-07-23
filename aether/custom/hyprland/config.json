@@ -1,0 +1,4 @@
+{
+    "template": "theme.conf",
+    "destination": "~/.config/hypr/aether-theme.conf"
+}

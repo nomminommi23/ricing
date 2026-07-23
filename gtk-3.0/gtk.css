@@ -1,0 +1,43 @@
+/* FORCE ALL BACKGROUNDS AND TEXT FIELDS TO BLUE ACCENTS */
+* {
+    /* Base text color */
+    color: #e2e8f0 !important;
+}
+
+/* Main Application Window Backgrounds */
+window, dialog, grid {
+    background-color: #1e222a !important;
+    background-image: none !important;
+}
+
+/* The Calculator Input Field and History Readout */
+entry, textview, textview text, text {
+    background-color: #16191f !important;
+    color: #61afef !important; /* Soft Blue text output */
+    border: 1px solid #00a3ff !important; /* Electric Blue Frame */
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+/* Calculator Grid Buttons */
+button {
+    background-color: #282c34 !important;
+    background-image: none !important;
+    border: 1px solid #3e4452 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+/* Mouse Hover Actions */
+button:hover {
+    background-color: #3e4452 !important;
+    border-color: #00a3ff !important;
+}
+
+/* Button Labels inside the buttons */
+button label {
+    color: #e2e8f0 !important;
+}
+button:hover label {
+    color: #00a3ff !important; /* Text inside turns electric blue on hover */
+}

@@ -1,0 +1,25 @@
+# Ignore everything by default — this repo only tracks rice-relevant configs.
+/*
+
+# Rice-relevant configs
+!/hypr
+!/waybar
+!/rofi
+!/kitty
+!/quickshell
+!/aether
+!/btop
+!/qt5ct
+!/qt6ct
+!/nwg-look
+!/gtk-3.0
+!/mimeapps.list
+!/.gitignore
+
+# Runtime/lock artifacts
+aether/aether.sock.pid
+
+# Manual pre-git backups — superseded by git history
+*.bak-*
+/hypr/backups/
+
