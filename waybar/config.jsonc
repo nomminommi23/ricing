@@ -19,7 +19,8 @@
     "custom/gpu",
     "network",
     "pulseaudio",
-    "clock"
+    "clock",
+    "custom/power-spacer"
   ],
   "custom/arch": {
     "format": "",
@@ -104,5 +105,10 @@
     "interval": 3,
     "return-type": "text",
     "tooltip": true
+  },
+  "custom/power-spacer": {
+    "format": " ",
+    "tooltip": false,
+    "interval": "once"
   }
 }
