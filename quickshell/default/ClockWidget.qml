@@ -60,6 +60,7 @@ Variants {
         exclusionMode: ExclusionMode.Ignore
         color: "transparent"
         WlrLayershell.namespace: "clock-widget"
+        WlrLayershell.layer: WlrLayer.Overlay
 
         property bool calendarOpen: false
         property bool hovering: false
@@ -113,6 +114,7 @@ Variants {
                 implicitHeight: tooltipCol.implicitHeight + 20
                 color: "transparent"
                 WlrLayershell.namespace: "clock-tooltip"
+                WlrLayershell.layer: WlrLayer.Overlay
 
                 Rectangle {
                     anchors.fill: parent
@@ -163,6 +165,7 @@ Variants {
                 implicitHeight: calCol.implicitHeight + 20
                 color: "transparent"
                 WlrLayershell.namespace: "clock-calendar"
+                WlrLayershell.layer: WlrLayer.Overlay
 
                 property int viewYear: panel.now.getFullYear()
                 property int viewMonth: panel.now.getMonth()

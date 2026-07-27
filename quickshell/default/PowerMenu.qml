@@ -26,6 +26,7 @@ Variants {
         exclusionMode: ExclusionMode.Ignore
         color: "transparent"
         WlrLayershell.namespace: "power-button"
+        WlrLayershell.layer: WlrLayer.Overlay
 
         property bool menuOpen: false
 
@@ -76,6 +77,7 @@ Variants {
                 implicitHeight: col.implicitHeight + 16
                 color: "transparent"
                 WlrLayershell.namespace: "power-menu"
+                WlrLayershell.layer: WlrLayer.Overlay
 
                 HyprlandFocusGrab {
                     windows: [ menu ]
