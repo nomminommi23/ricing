@@ -63,8 +63,7 @@ window#waybar {
 #custom-gpu,
 #temperature,
 #network,
-#pulseaudio,
-#clock {
+#pulseaudio {
     color: @foreground;
     padding: 0 10px;
     margin: 4px 2px;
@@ -80,13 +79,17 @@ window#waybar {
 #pulseaudio { color: @magenta; }
 #pulseaudio.muted { color: @muted; }
 
-#clock {
-    color: @bright_white;
-}
-
 /* Reserved blank space where the Quickshell power button/menu renders on top. */
 #custom-power-spacer {
     min-width: 48px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+/* Reserved blank space where the Quickshell clock/calendar widget renders on top. */
+#custom-clock-spacer {
+    min-width: 130px;
     padding: 0;
     margin: 0;
     background: transparent;

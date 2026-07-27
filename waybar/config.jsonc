@@ -19,7 +19,7 @@
     "custom/gpu",
     "network",
     "pulseaudio",
-    "clock",
+    "custom/clock-spacer",
     "custom/power-spacer"
   ],
   "custom/arch": {
@@ -89,10 +89,6 @@
     "scroll-step": 5,
     "on-click": "pavucontrol"
   },
-  "clock": {
-    "format": " {:%d.%m. %H:%M}",
-    "tooltip-format": "<big>{:%A, %d. %B %Y}</big>\n<tt><small>{calendar}</small></tt>"
-  },
   "disk": {
     "interval": 30,
     "path": "/",
@@ -107,6 +103,11 @@
     "tooltip": true
   },
   "custom/power-spacer": {
+    "format": " ",
+    "tooltip": false,
+    "interval": "once"
+  },
+  "custom/clock-spacer": {
     "format": " ",
     "tooltip": false,
     "interval": "once"
