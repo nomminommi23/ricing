@@ -166,7 +166,7 @@ Variants {
         }
 
         Timer { interval: 100; running: true; repeat: false; onTriggered: statsProc.running = true }
-        Timer { interval: 2000; running: true; repeat: true; onTriggered: statsProc.running = true }
+        Timer { interval: 1000; running: true; repeat: true; onTriggered: statsProc.running = true }
 
         Process {
             id: netProc
@@ -206,7 +206,18 @@ Variants {
         }
 
         Timer { interval: 500; running: true; repeat: false; onTriggered: volumeProc.running = true }
-        Timer { interval: 3000; running: true; repeat: true; onTriggered: volumeProc.running = true }
+        Timer { interval: 5000; running: true; repeat: true; onTriggered: volumeProc.running = true }
+
+        Process {
+            id: volumeWatchProc
+            command: ["pactl", "subscribe"]
+            running: true
+            stdout: SplitParser {
+                onRead: data => {
+                    if (data.indexOf("sink") !== -1) volumeProc.running = true
+                }
+            }
+        }
 
         Process { id: pavucontrolProc; command: ["pavucontrol"] }
         Process { id: volUpProc; command: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "5%+"] }
@@ -353,37 +364,46 @@ Variants {
             anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
             spacing: 10
 
-            RowLayout {
-                id: trayRow
-                spacing: 8
-                visible: count > 0
+            Rectangle {
+                id: trayPill
                 readonly property int count: SystemTray.items.values.length
+                visible: count > 0
+                Layout.preferredWidth: count > 0 ? trayRow.implicitWidth + 16 : 0
+                Layout.preferredHeight: 26
+                radius: 10
+                color: Qt.rgba(0.102, 0.106, 0.149, 0.85)
 
-                Repeater {
-                    model: SystemTray.items
+                RowLayout {
+                    id: trayRow
+                    anchors.centerIn: parent
+                    spacing: 8
 
-                    Item {
-                        required property var modelData
-                        Layout.preferredWidth: 18
-                        Layout.preferredHeight: 18
+                    Repeater {
+                        model: SystemTray.items
 
-                        Image {
-                            anchors.fill: parent
-                            source: modelData.icon
-                            sourceSize: Qt.size(18, 18)
-                            smooth: true
-                        }
+                        Item {
+                            required property var modelData
+                            Layout.preferredWidth: 18
+                            Layout.preferredHeight: 18
 
-                        MouseArea {
-                            id: trayItemArea
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            onClicked: mouse => {
-                                if (mouse.button === Qt.RightButton && modelData.hasMenu) {
-                                    var pos = trayItemArea.mapToItem(bar.contentItem, mouse.x, mouse.y)
-                                    modelData.display(bar, pos.x, pos.y)
-                                } else {
-                                    modelData.activate()
+                            Image {
+                                anchors.fill: parent
+                                source: modelData.icon
+                                sourceSize: Qt.size(18, 18)
+                                smooth: true
+                            }
+
+                            MouseArea {
+                                id: trayItemArea
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.RightButton && modelData.hasMenu) {
+                                        var pos = trayItemArea.mapToItem(bar.contentItem, mouse.x, mouse.y)
+                                        modelData.display(bar, pos.x, pos.y)
+                                    } else {
+                                        modelData.activate()
+                                    }
                                 }
                             }
                         }
