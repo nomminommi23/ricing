@@ -15,6 +15,8 @@ Variants {
     readonly property string restartLabel: isGerman ? "Neustart" : "Restart"
     readonly property string shutdownLabel: isGerman ? "Herunterfahren" : "Shutdown"
 
+    property bool windowSwitcherOpen: false
+
     function isoWeek(d) {
         let date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
         let day = (date.getUTCDay() + 6) % 7;
@@ -68,6 +70,17 @@ Variants {
         readonly property var workspaceIds: modelData.name === "DP-1" ? [1, 2, 3, 4, 9] : [5, 6, 7, 8]
         readonly property var activeToplevel: Hyprland.activeToplevel
         readonly property string titleText: (activeToplevel && activeToplevel.monitor && activeToplevel.monitor.name === modelData.name) ? activeToplevel.title : ""
+
+        Loader {
+            active: modelData === Quickshell.screens[0]
+            sourceComponent: IpcHandler {
+                target: "windowswitcher"
+
+                function toggle(): void {
+                    root.windowSwitcherOpen = !root.windowSwitcherOpen
+                }
+            }
+        }
 
         property string hovered: ""
         property bool menuOpen: false
@@ -223,6 +236,7 @@ Variants {
 
         // ================= LEFT =================
         RowLayout {
+            id: leftRow
             anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
             spacing: 6
 
@@ -295,6 +309,29 @@ Variants {
                             }
                         }
                     }
+                }
+            }
+
+            Rectangle {
+                id: winSwitchBtn
+                Layout.preferredWidth: 26
+                Layout.preferredHeight: 26
+                radius: 10
+                color: (winSwitchArea.containsMouse || root.windowSwitcherOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: ""
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: (winSwitchArea.containsMouse || root.windowSwitcherOpen) ? "#0f111a" : "#7aa2f7"
+                }
+
+                MouseArea {
+                    id: winSwitchArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.windowSwitcherOpen = !root.windowSwitcherOpen
                 }
             }
         }
@@ -1064,6 +1101,100 @@ Variants {
                             onTriggered: {
                                 bar.menuOpen = false
                                 shutdownProc.startDetached()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyLoader {
+            active: root.windowSwitcherOpen && Hyprland.focusedMonitor !== null && bar.modelData.name === Hyprland.focusedMonitor.name
+
+            PanelWindow {
+                id: winSwitchPopup
+                screen: bar.modelData
+                anchors { top: true; left: true }
+                margins { top: 34; left: leftRow.x + winSwitchBtn.x }
+                implicitWidth: 320
+                implicitHeight: winSwitchCol.implicitHeight + 16
+                color: "transparent"
+                WlrLayershell.namespace: "window-switcher"
+                WlrLayershell.layer: WlrLayer.Top
+
+                HyprlandFocusGrab {
+                    windows: [ winSwitchPopup ]
+                    active: true
+                    onCleared: root.windowSwitcherOpen = false
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 10
+                    color: "#e61a1b26"
+                    border.width: 1
+                    border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                    ColumnLayout {
+                        id: winSwitchCol
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 2
+
+                        Text {
+                            visible: Hyprland.toplevels.values.length === 0
+                            text: root.isGerman ? "Keine Fenster ge\u00f6ffnet" : "No open windows"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: "#565f89"
+                        }
+
+                        Repeater {
+                            model: Hyprland.toplevels
+
+                            Rectangle {
+                                id: winRow
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: 30
+                                radius: 8
+                                color: winRowArea.containsMouse ? "#1793d1" : "transparent"
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 8
+
+                                    Text {
+                                        Layout.preferredWidth: 22
+                                        text: winRow.modelData.workspace ? winRow.modelData.workspace.name : ""
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 11
+                                        color: winRowArea.containsMouse ? "#0f111a" : "#565f89"
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: winRow.modelData.title
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 13
+                                        color: winRowArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: winRowArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        var addr = winRow.modelData.address
+                                        if (!addr.startsWith("0x")) addr = "0x" + addr
+                                        Hyprland.dispatch("focuswindow address:" + addr)
+                                        root.windowSwitcherOpen = false
+                                    }
+                                }
                             }
                         }
                     }
