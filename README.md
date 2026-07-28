@@ -36,6 +36,73 @@ All the stats are pulled by small shell scripts in `quickshell/default/scripts/`
 
 The color palette lives in [`aether/`](aether/) and is the single source of truth — [`aether/theme/colors.toml`](aether/theme/colors.toml) defines the palette, and aether renders it out into per-app configs (Hyprland, Kitty, Rofi, Waybar-era CSS, btop, Zed, etc.), most of which get `@import`ed or sourced by that app's real config rather than edited directly. The bar's own colors in `Bar.qml` are hand-matched to this palette rather than generated, since Quickshell reads QML, not CSS.
 
+It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around.
+
+## Hotkeys
+
+`Mod` = <kbd>Super</kbd>.
+
+### Apps
+
+| Key | Action |
+|---|---|
+| `Mod + Return` | Terminal (Kitty) |
+| `Mod + W` | Browser (Zen) |
+| `Mod + N` | File manager (Dolphin) |
+| `Mod + Space` | App launcher (Rofi) |
+| `Mod + Shift + P` | Spotify |
+| `Mod + Shift + C` | Discord |
+| `Mod + Shift + S` | Steam |
+| `Mod + Shift + T` | btop (in terminal) |
+| `Mod + Alt + C` | Qalculate |
+| `Mod + C` | Clipboard history (cliphist + Rofi) |
+
+### Bar
+
+| Key | Action |
+|---|---|
+| `Mod + Shift + A` | Toggle the window switcher dropdown |
+
+### Windows
+
+| Key | Action |
+|---|---|
+| `Mod + Q` | Close active window |
+| `Mod + Shift + E` | Exit Hyprland |
+| `Mod + F` | Toggle fullscreen |
+| `Mod + V` | Toggle floating |
+| `Mod + P` | Toggle pseudotiling |
+| `Mod + ← / → / K / J` | Move focus (left/right/up/down) |
+| `Mod + Shift + ← / → / ↑ / ↓` | Move window |
+| `Mod + Ctrl + H / L / K / J` | Resize active window |
+| `Mod + LMB` drag | Move window |
+| `Mod + RMB` drag | Resize window |
+
+### Workspaces
+
+| Key | Action |
+|---|---|
+| `Mod + 1` … `Mod + 9` | Switch to workspace 1–9 |
+| `Mod + Shift + 1` … `Mod + Shift + 9` | Move window to workspace 1–9 |
+| `Mod + Scroll` | Next/previous workspace |
+
+### Screenshots
+
+| Key | Action |
+|---|---|
+| `Print` | Region screenshot → clipboard |
+| `Shift + Print` | Region screenshot → `~/Pictures/Screenshots/` |
+
+### Media / audio / brightness
+
+| Key | Action |
+|---|---|
+| `XF86AudioRaiseVolume` / `LowerVolume` | Volume up/down |
+| `XF86AudioMute` | Mute |
+| `XF86AudioMicMute` | Mute mic |
+| `XF86MonBrightnessUp` / `Down` | Brightness up/down |
+| `XF86AudioPlay` / `Next` / `Prev` | Media playback control |
+
 ## Requirements
 
 Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup).
