@@ -81,7 +81,10 @@ Variants {
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 4
+            anchors.topMargin: 4
+            anchors.bottomMargin: 4
+            anchors.rightMargin: 4
+            anchors.leftMargin: 2
             radius: 10
             color: clockArea.containsMouse ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
 

@@ -62,7 +62,6 @@ window#waybar {
 #disk,
 #custom-gpu,
 #temperature,
-#network,
 #pulseaudio {
     color: @foreground;
     padding: 0 10px;
@@ -75,7 +74,6 @@ window#waybar {
 #memory { color: @cyan; }
 #temperature { color: @yellow; }
 #temperature.critical { color: @red; }
-#network { color: @green; }
 #pulseaudio { color: @magenta; }
 #pulseaudio.muted { color: @muted; }
 
@@ -90,6 +88,14 @@ window#waybar {
 /* Reserved blank space where the Quickshell clock/calendar widget renders on top. */
 #custom-clock-spacer {
     min-width: 130px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+/* Reserved blank space where the Quickshell network widget renders on top. */
+#custom-network-spacer {
+    min-width: 72px;
     padding: 0;
     margin: 0;
     background: transparent;

@@ -17,8 +17,8 @@
     "disk",
     "temperature",
     "custom/gpu",
-    "network",
     "pulseaudio",
+    "custom/network-spacer",
     "custom/clock-spacer",
     "custom/power-spacer"
   ],
@@ -77,11 +77,10 @@
     "critical-threshold": 80,
     "tooltip": false
   },
-  "network": {
-    "format-wifi": " {essid}",
-    "format-ethernet": "󰈀 LAN",
-    "format-disconnected": "󰤭 offline",
-    "tooltip": true
+  "custom/network-spacer": {
+    "format": " ",
+    "tooltip": false,
+    "interval": "once"
   },
   "pulseaudio": {
     "format": " {volume}%",
