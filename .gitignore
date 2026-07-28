@@ -17,6 +17,7 @@
 !/dolphinrc
 !/kdeglobals
 !/.gitignore
+!/README.md
 
 # Runtime/lock artifacts
 aether/aether.sock.pid
