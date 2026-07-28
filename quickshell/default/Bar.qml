@@ -375,11 +375,13 @@ Variants {
                         }
 
                         MouseArea {
+                            id: trayItemArea
                             anchors.fill: parent
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             onClicked: mouse => {
                                 if (mouse.button === Qt.RightButton && modelData.hasMenu) {
-                                    modelData.display(bar, mouse.x, mouse.y)
+                                    var pos = trayItemArea.mapToItem(bar.contentItem, mouse.x, mouse.y)
+                                    modelData.display(bar, pos.x, pos.y)
                                 } else {
                                     modelData.activate()
                                 }
