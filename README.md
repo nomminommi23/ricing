@@ -36,7 +36,7 @@ All the stats are pulled by small shell scripts in `quickshell/default/scripts/`
 
 The color palette lives in [`aether/`](aether/) and is the single source of truth — [`aether/theme/colors.toml`](aether/theme/colors.toml) defines the palette, and aether renders it out into per-app configs (Hyprland, Kitty, Rofi, Waybar-era CSS, btop, Zed, etc.), most of which get `@import`ed or sourced by that app's real config rather than edited directly. The bar's own colors in `Bar.qml` are hand-matched to this palette rather than generated, since Quickshell reads QML, not CSS.
 
-It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around.
+It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around. The wallpaper itself is tracked at [`hypr/wallpaper.png`](hypr/wallpaper.png) and set via `swaybg` in `hyprland.conf`.
 
 ## Hotkeys
 
@@ -110,7 +110,7 @@ Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`
 ## Layout
 
 ```
-hypr/        Hyprland config
+hypr/        Hyprland config + wallpaper.png
 quickshell/  The bar (Bar.qml + helper QML components + scripts/)
 rofi/        Launcher config + theme
 kitty/       Terminal config + theme
