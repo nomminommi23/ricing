@@ -383,6 +383,36 @@ Variants {
                 return arr
             }
 
+            // Prefer the Wayland toplevel handle's appId - it's set by the
+            // compositor immediately on window creation. lastIpcObject
+            // (Hyprland's IPC JSON snapshot) can lag or stay stale for
+            // windows opened after Quickshell started, which was leaving
+            // icons unresolved for anything not already open at launch.
+            function classOf(tl) {
+                if (tl.wayland && tl.wayland.appId) return tl.wayland.appId
+                return tl.lastIpcObject ? (tl.lastIpcObject.class || "") : ""
+            }
+
+            // One entry per app class, each carrying all its windows, so
+            // multiple windows of the same app collapse into a single button.
+            readonly property var groupedTasks: {
+                var groups = {}
+                var order = []
+                for (var i = 0; i < taskbarRow.sortedToplevels.length; i++) {
+                    var tl = taskbarRow.sortedToplevels[i]
+                    var cls = taskbarRow.classOf(tl)
+                    var key = cls || tl.address
+                    if (!groups[key]) {
+                        groups[key] = { wmClass: cls, windows: [] }
+                        order.push(key)
+                    }
+                    groups[key].windows.push(tl)
+                }
+                var result = []
+                for (var j = 0; j < order.length; j++) result.push(groups[order[j]])
+                return result
+            }
+
             anchors {
                 left: leftRow.right
                 leftMargin: 8
@@ -391,7 +421,7 @@ Variants {
             spacing: 8
 
             Text {
-                visible: taskbarRow.sortedToplevels.length === 0
+                visible: taskbarRow.groupedTasks.length === 0
                 text: root.isGerman ? "Keine Fenster geöffnet" : "No open windows"
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
@@ -399,31 +429,38 @@ Variants {
             }
 
             Repeater {
-                model: taskbarRow.sortedToplevels
+                model: taskbarRow.groupedTasks
 
                 Rectangle {
                     id: taskBtn
                     required property var modelData
-                    readonly property bool isActive: bar.activeToplevel !== null && taskBtn.modelData.address === bar.activeToplevel.address
-                    // Prefer the Wayland toplevel handle's appId - it's set by the
-                    // compositor immediately on window creation. lastIpcObject
-                    // (Hyprland's IPC JSON snapshot) can lag or stay stale for
-                    // windows opened after Quickshell started, which was leaving
-                    // icons unresolved for anything not already open at launch.
-                    readonly property string wmClass: {
-                        if (taskBtn.modelData.wayland && taskBtn.modelData.wayland.appId) return taskBtn.modelData.wayland.appId
-                        return taskBtn.modelData.lastIpcObject ? (taskBtn.modelData.lastIpcObject.class || "") : ""
+                    readonly property var windows: taskBtn.modelData.windows
+                    readonly property bool isActive: bar.activeToplevel !== null && taskBtn.windows.some(function (w) { return w.address === bar.activeToplevel.address })
+                    // Popup stays open across the gap between the button and the
+                    // popup itself (they're separate surfaces) via a short close
+                    // delay, so the pointer has time to reach the window list.
+                    property bool showPopup: false
+
+                    Timer {
+                        id: hidePopupTimer
+                        interval: 250
+                        onTriggered: taskBtn.showPopup = false
                     }
+
                     readonly property var desktopEntry: {
                         // heuristicLookup() is a plain call, not a reactive property read;
                         // depend on applications explicitly so this re-evaluates once the
                         // desktop entry list has finished loading (it's empty for a moment
                         // at Quickshell startup).
                         var _appList = DesktopEntries.applications
-                        return taskBtn.wmClass ? DesktopEntries.heuristicLookup(taskBtn.wmClass) : null
+                        return taskBtn.modelData.wmClass ? DesktopEntries.heuristicLookup(taskBtn.modelData.wmClass) : null
                     }
                     readonly property string iconSource: taskBtn.desktopEntry && taskBtn.desktopEntry.icon ? Quickshell.iconPath(taskBtn.desktopEntry.icon, "") : ""
-                    readonly property string fallbackLetter: taskBtn.modelData.title && taskBtn.modelData.title.length > 0 ? taskBtn.modelData.title.charAt(0).toUpperCase() : "?"
+                    readonly property string fallbackLetter: {
+                        if (taskBtn.modelData.wmClass && taskBtn.modelData.wmClass.length > 0) return taskBtn.modelData.wmClass.charAt(0).toUpperCase()
+                        if (taskBtn.windows.length > 0 && taskBtn.windows[0].title) return taskBtn.windows[0].title.charAt(0).toUpperCase()
+                        return "?"
+                    }
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 26
                     radius: 8
@@ -448,30 +485,60 @@ Variants {
                         color: taskBtn.isActive ? "#0f111a" : "#c0caf5"
                     }
 
+                    // Multi-window indicator
+                    Rectangle {
+                        visible: taskBtn.windows.length > 1
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.rightMargin: -3
+                        anchors.bottomMargin: -3
+                        width: 14
+                        height: 14
+                        radius: 7
+                        color: "#7aa2f7"
+                        border.width: 1
+                        border.color: Qt.rgba(0.102, 0.106, 0.149, 1)
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: taskBtn.windows.length
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 9
+                            font.bold: true
+                            color: "#0f111a"
+                        }
+                    }
+
                     MouseArea {
                         id: taskArea
                         anchors.fill: parent
                         hoverEnabled: true
+                        onEntered: {
+                            hidePopupTimer.stop()
+                            taskBtn.showPopup = true
+                        }
+                        onExited: hidePopupTimer.restart()
                         onClicked: {
-                            var addr = taskBtn.modelData.address
+                            var addr = taskBtn.windows[0].address
                             if (!addr.startsWith("0x")) addr = "0x" + addr
                             Hyprland.dispatch("hl.dsp.focus({window = \"address:" + addr + "\"})")
                         }
                     }
 
-                    // Title tooltip, shown only on hover. The bar is a fixed-size
+                    // Window list, shown only on hover. The bar is a fixed-size
                     // Wayland layer surface, so content can't just overflow its
                     // bounds - this needs its own popup surface, same pattern as
-                    // the clock tooltip below.
+                    // the clock tooltip below. One row per window in the group,
+                    // each individually clickable to focus that specific window.
                     LazyLoader {
-                        active: taskArea.containsMouse
+                        active: taskBtn.showPopup
 
                         PanelWindow {
                             screen: bar.modelData
                             anchors { top: true; left: true }
                             margins { top: 34; left: taskbarRow.x + taskBtn.x }
-                            implicitWidth: taskTooltipText.implicitWidth + 20
-                            implicitHeight: 26
+                            implicitWidth: 220
+                            implicitHeight: taskGroupCol.implicitHeight + 16
                             color: "transparent"
                             WlrLayershell.namespace: "taskbar-tooltip"
                             WlrLayershell.layer: WlrLayer.Top
@@ -483,13 +550,57 @@ Variants {
                                 border.width: 1
                                 border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
-                                Text {
-                                    id: taskTooltipText
-                                    anchors.centerIn: parent
-                                    text: taskBtn.modelData.title
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 12
-                                    color: "#c0caf5"
+                                // Tracks hover without stealing clicks from the
+                                // row MouseAreas below, so moving the pointer
+                                // into the popup cancels the close timer.
+                                HoverHandler {
+                                    onHoveredChanged: {
+                                        if (hovered) hidePopupTimer.stop()
+                                        else hidePopupTimer.restart()
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    id: taskGroupCol
+                                    anchors.fill: parent
+                                    anchors.margins: 8
+                                    spacing: 2
+
+                                    Repeater {
+                                        model: taskBtn.windows
+
+                                        Rectangle {
+                                            id: taskGroupRow
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            implicitHeight: 24
+                                            radius: 6
+                                            color: groupRowArea.containsMouse ? "#1793d1" : "transparent"
+
+                                            Text {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 8
+                                                anchors.rightMargin: 8
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideRight
+                                                text: taskGroupRow.modelData.title
+                                                font.family: "JetBrainsMono Nerd Font"
+                                                font.pixelSize: 12
+                                                color: groupRowArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                            }
+
+                                            MouseArea {
+                                                id: groupRowArea
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                onClicked: {
+                                                    var addr = taskGroupRow.modelData.address
+                                                    if (!addr.startsWith("0x")) addr = "0x" + addr
+                                                    Hyprland.dispatch("hl.dsp.focus({window = \"address:" + addr + "\"})")
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
