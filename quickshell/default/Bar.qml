@@ -290,7 +290,7 @@ Variants {
                                 }
                                 return null
                             }
-                            readonly property bool active: hyprWs !== null && hyprWs.active
+                            readonly property bool active: hyprWs !== null && hyprWs.active && Hyprland.focusedMonitor !== null && Hyprland.focusedMonitor.name === bar.modelData.name
 
                             Layout.preferredWidth: 22
                             Layout.preferredHeight: 20
@@ -316,7 +316,7 @@ Variants {
                                 id: wsArea
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                onClicked: Hyprland.dispatch("workspace " + wsBtn.modelData)
+                                onClicked: Hyprland.dispatch("hl.dsp.focus({workspace = " + wsBtn.modelData + "})")
                             }
                         }
                     }
@@ -1213,7 +1213,7 @@ Variants {
                                     onClicked: {
                                         var addr = winRow.modelData.address
                                         if (!addr.startsWith("0x")) addr = "0x" + addr
-                                        Hyprland.dispatch("focuswindow address:" + addr)
+                                        Hyprland.dispatch("hl.dsp.focus({window = \"address:" + addr + "\"})")
                                         root.windowSwitcherOpen = false
                                     }
                                 }
