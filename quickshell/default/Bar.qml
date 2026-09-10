@@ -405,7 +405,15 @@ Variants {
                     id: taskBtn
                     required property var modelData
                     readonly property bool isActive: bar.activeToplevel !== null && taskBtn.modelData.address === bar.activeToplevel.address
-                    readonly property string wmClass: taskBtn.modelData.lastIpcObject ? (taskBtn.modelData.lastIpcObject.class || "") : ""
+                    // Prefer the Wayland toplevel handle's appId - it's set by the
+                    // compositor immediately on window creation. lastIpcObject
+                    // (Hyprland's IPC JSON snapshot) can lag or stay stale for
+                    // windows opened after Quickshell started, which was leaving
+                    // icons unresolved for anything not already open at launch.
+                    readonly property string wmClass: {
+                        if (taskBtn.modelData.wayland && taskBtn.modelData.wayland.appId) return taskBtn.modelData.wayland.appId
+                        return taskBtn.modelData.lastIpcObject ? (taskBtn.modelData.lastIpcObject.class || "") : ""
+                    }
                     readonly property var desktopEntry: {
                         // heuristicLookup() is a plain call, not a reactive property read;
                         // depend on applications explicitly so this re-evaluates once the
