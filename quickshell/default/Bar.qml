@@ -85,6 +85,7 @@ Variants {
         property string hovered: ""
         property bool menuOpen: false
         property bool calendarOpen: false
+        property bool taskbarMode: false
         property bool clockHovering: false
         property bool netHovering: false
         property bool showCpuTemp: false
@@ -265,10 +266,16 @@ Variants {
                     font.pixelSize: 18
                     color: "#1793d1"
                 }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: bar.taskbarMode = !bar.taskbarMode
+                }
             }
 
             Rectangle {
-                Layout.preferredWidth: wsRow.implicitWidth + 8
+                visible: !bar.taskbarMode
+                Layout.preferredWidth: visible ? wsRow.implicitWidth + 8 : 0
                 Layout.preferredHeight: 26
                 radius: 10
                 color: Qt.rgba(0.102, 0.106, 0.149, 0.85)
@@ -325,7 +332,8 @@ Variants {
 
             Rectangle {
                 id: winSwitchBtn
-                Layout.preferredWidth: 26
+                visible: !bar.taskbarMode
+                Layout.preferredWidth: visible ? 26 : 0
                 Layout.preferredHeight: 26
                 radius: 10
                 color: (winSwitchArea.containsMouse || root.windowSwitcherOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
@@ -349,6 +357,7 @@ Variants {
 
         // ================= CENTER =================
         Text {
+            visible: !bar.taskbarMode
             anchors.centerIn: parent
             width: Math.min(implicitWidth, 500)
             elide: Text.ElideRight
@@ -356,6 +365,129 @@ Variants {
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 13
             color: "#c0caf5"
+        }
+
+        // ================= TASKBAR (toggled via Arch logo) =================
+        RowLayout {
+            id: taskbarRow
+            visible: bar.taskbarMode
+
+            // Hyprland.toplevels can silently reorder (e.g. on focus changes),
+            // which makes taskbar buttons jump around. Sort by address so each
+            // window keeps a stable slot like a real taskbar.
+            readonly property var sortedToplevels: {
+                var arr = Hyprland.toplevels.values.slice()
+                arr.sort(function (a, b) {
+                    return a.address < b.address ? -1 : (a.address > b.address ? 1 : 0)
+                })
+                return arr
+            }
+
+            anchors {
+                left: leftRow.right
+                leftMargin: 8
+                verticalCenter: parent.verticalCenter
+            }
+            spacing: 8
+
+            Text {
+                visible: taskbarRow.sortedToplevels.length === 0
+                text: root.isGerman ? "Keine Fenster geöffnet" : "No open windows"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 12
+                color: "#565f89"
+            }
+
+            Repeater {
+                model: taskbarRow.sortedToplevels
+
+                Rectangle {
+                    id: taskBtn
+                    required property var modelData
+                    readonly property bool isActive: bar.activeToplevel !== null && taskBtn.modelData.address === bar.activeToplevel.address
+                    readonly property string wmClass: taskBtn.modelData.lastIpcObject ? (taskBtn.modelData.lastIpcObject.class || "") : ""
+                    readonly property var desktopEntry: {
+                        // heuristicLookup() is a plain call, not a reactive property read;
+                        // depend on applications explicitly so this re-evaluates once the
+                        // desktop entry list has finished loading (it's empty for a moment
+                        // at Quickshell startup).
+                        var _appList = DesktopEntries.applications
+                        return taskBtn.wmClass ? DesktopEntries.heuristicLookup(taskBtn.wmClass) : null
+                    }
+                    readonly property string iconSource: taskBtn.desktopEntry && taskBtn.desktopEntry.icon ? Quickshell.iconPath(taskBtn.desktopEntry.icon, "") : ""
+                    readonly property string fallbackLetter: taskBtn.modelData.title && taskBtn.modelData.title.length > 0 ? taskBtn.modelData.title.charAt(0).toUpperCase() : "?"
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 26
+                    radius: 8
+                    color: taskBtn.isActive ? "#1793d1" : (taskArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.22) : Qt.rgba(0.102, 0.106, 0.149, 0.85))
+
+                    Image {
+                        visible: taskBtn.iconSource !== ""
+                        anchors.centerIn: parent
+                        width: 16
+                        height: 16
+                        source: taskBtn.iconSource
+                        sourceSize: Qt.size(16, 16)
+                    }
+
+                    Text {
+                        visible: taskBtn.iconSource === ""
+                        anchors.centerIn: parent
+                        text: taskBtn.fallbackLetter
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        font.bold: true
+                        color: taskBtn.isActive ? "#0f111a" : "#c0caf5"
+                    }
+
+                    MouseArea {
+                        id: taskArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            var addr = taskBtn.modelData.address
+                            if (!addr.startsWith("0x")) addr = "0x" + addr
+                            Hyprland.dispatch("hl.dsp.focus({window = \"address:" + addr + "\"})")
+                        }
+                    }
+
+                    // Title tooltip, shown only on hover. The bar is a fixed-size
+                    // Wayland layer surface, so content can't just overflow its
+                    // bounds - this needs its own popup surface, same pattern as
+                    // the clock tooltip below.
+                    LazyLoader {
+                        active: taskArea.containsMouse
+
+                        PanelWindow {
+                            screen: bar.modelData
+                            anchors { top: true; left: true }
+                            margins { top: 34; left: taskbarRow.x + taskBtn.x }
+                            implicitWidth: taskTooltipText.implicitWidth + 20
+                            implicitHeight: 26
+                            color: "transparent"
+                            WlrLayershell.namespace: "taskbar-tooltip"
+                            WlrLayershell.layer: WlrLayer.Top
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 8
+                                color: "#e61a1b26"
+                                border.width: 1
+                                border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                                Text {
+                                    id: taskTooltipText
+                                    anchors.centerIn: parent
+                                    text: taskBtn.modelData.title
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 12
+                                    color: "#c0caf5"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // ================= RIGHT =================
@@ -367,8 +499,8 @@ Variants {
             Rectangle {
                 id: trayPill
                 readonly property int count: SystemTray.items.values.length
-                visible: count > 0
-                Layout.preferredWidth: count > 0 ? trayRow.implicitWidth + 16 : 0
+                visible: count > 0 && !bar.taskbarMode
+                Layout.preferredWidth: visible ? trayRow.implicitWidth + 16 : 0
                 Layout.preferredHeight: 26
                 radius: 10
                 color: Qt.rgba(0.102, 0.106, 0.149, 0.85)
@@ -413,6 +545,7 @@ Variants {
 
             Rectangle {
                 id: cpuPill
+                visible: !bar.taskbarMode
                 Layout.preferredWidth: cpuRow.implicitWidth + 14
                 Layout.preferredHeight: 26
                 radius: 10
@@ -449,6 +582,7 @@ Variants {
 
             Rectangle {
                 id: memPill
+                visible: !bar.taskbarMode
                 Layout.preferredWidth: memRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
@@ -484,6 +618,7 @@ Variants {
 
             Rectangle {
                 id: diskPill
+                visible: !bar.taskbarMode
                 Layout.preferredWidth: diskRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
@@ -519,7 +654,7 @@ Variants {
 
             Rectangle {
                 id: gpuPill
-                visible: bar.gpuAvailable
+                visible: bar.gpuAvailable && !bar.taskbarMode
                 Layout.preferredWidth: visible ? gpuRow.implicitWidth + 14 : 0
                 Layout.preferredHeight: 26
                 radius: 10
@@ -555,6 +690,7 @@ Variants {
 
             Rectangle {
                 id: volumePill
+                visible: !bar.taskbarMode
                 Layout.preferredWidth: volRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
@@ -600,6 +736,7 @@ Variants {
 
             Rectangle {
                 id: networkPill
+                visible: !bar.taskbarMode
                 Layout.preferredWidth: netRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
