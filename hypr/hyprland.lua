@@ -40,6 +40,13 @@ hl.monitor({
     sdr_max_luminance = 80,
 })
 
+-- Cursor (and thus initial focus/workspace) should start on the primary monitor
+hl.config({
+    cursor = {
+        default_monitor = "desc:HKC OVERSEAS LIMITED 27E6QC 0000000000001",
+    },
+})
+
 -- ----------------------------------------------------------
 
 -- Environment

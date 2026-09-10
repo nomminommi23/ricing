@@ -224,7 +224,7 @@ Variants {
         Process { id: volDownProc; command: ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "5%-"] }
         Process { id: volMuteProc; command: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"] }
 
-        Process { id: logoutProc; command: ["hyprctl", "dispatch", "exit"] }
+        Process { id: logoutProc; command: ["hyprctl", "dispatch", "hl.dsp.exit()"] }
         Process { id: rebootProc; command: ["systemctl", "reboot"] }
         Process { id: shutdownProc; command: ["systemctl", "poweroff"] }
 
