@@ -20,7 +20,8 @@ My personal dotfiles for a [Hyprland](https://hyprland.org/) desktop on Arch Lin
 
 Waybar has been fully retired. The whole top bar is one Quickshell shell (`quickshell/default/Bar.qml`), instantiated per monitor, laid out with real QML layouts instead of a mix of two independent renderers guessing at each other's positions. It includes:
 
-- **Logo + workspaces** — per-monitor workspace pills (Hyprland IPC), click to switch
+- **Logo + workspaces** — per-monitor workspace pills (Hyprland IPC), click to switch. Click the logo itself to toggle taskbar mode (below)
+- **Taskbar mode** — clicking the logo swaps the workspace pills, window title, and stat pills for a compact Windows-style taskbar of every open window, shown as icon buttons (resolved via `DesktopEntries.heuristicLookup()`, the same mechanism app launchers use, falling back to the title's first letter if no icon is found). Hover a button for the full title, click to focus. Clock and power button stay visible in both modes
 - **Window switcher** — a button between the workspaces and the window title that drops down a list of every open window across all workspaces; click one to focus it. Also bound to `Mod+Shift+A`
 - **Active window title** — per-monitor, shows the title of whichever window is focused on that specific screen
 - **System tray** — StatusNotifierItem icons with left-click activate / right-click context menu
@@ -32,11 +33,13 @@ Waybar has been fully retired. The whole top bar is one Quickshell shell (`quick
 
 All the stats are pulled by small shell scripts in `quickshell/default/scripts/` rather than baked into the QML.
 
+Hyprland itself is configured via [`hypr/hyprland.lua`](hypr/hyprland.lua) (Hyprland's Lua config API) — that's the active config; `hyprland.conf` is kept around for reference but is no longer loaded. One consequence: `hyprctl dispatch` (and anything sending it a raw dispatch string, like this bar's workspace/window-switcher clicks) needs the new `hl.dsp.*` Lua-expression syntax instead of the classic one, e.g. `hl.dsp.focus({workspace = 1})` rather than `workspace 1`.
+
 ## Theming (aether)
 
 The color palette lives in [`aether/`](aether/) and is the single source of truth — [`aether/theme/colors.toml`](aether/theme/colors.toml) defines the palette, and aether renders it out into per-app configs (Hyprland, Kitty, Rofi, Waybar-era CSS, btop, Zed, etc.), most of which get `@import`ed or sourced by that app's real config rather than edited directly. The bar's own colors in `Bar.qml` are hand-matched to this palette rather than generated, since Quickshell reads QML, not CSS.
 
-It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around. The wallpaper itself is tracked at [`hypr/wallpaper.png`](hypr/wallpaper.png) and set via `swaybg` in `hyprland.conf`.
+It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around. The wallpaper itself is tracked at [`hypr/wallpaper.png`](hypr/wallpaper.png) and set via `swaybg` in `hyprland.lua`.
 
 ## Hotkeys
 
@@ -110,7 +113,7 @@ Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`
 ## Layout
 
 ```
-hypr/        Hyprland config + wallpaper.png
+hypr/        Hyprland config (hyprland.lua is active, .conf kept for reference) + wallpaper.png
 quickshell/  The bar (Bar.qml + helper QML components + scripts/)
 rofi/        Launcher config + theme
 kitty/       Terminal config + theme
