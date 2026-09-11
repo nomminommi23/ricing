@@ -375,8 +375,15 @@ Variants {
             // Hyprland.toplevels can silently reorder (e.g. on focus changes),
             // which makes taskbar buttons jump around. Sort by address so each
             // window keeps a stable slot like a real taskbar.
+            //
+            // It also includes things hyprctl clients doesn't (e.g. fcitx's
+            // "Input" / "Default IME" popup toplevels) - those never get a
+            // real workspace assigned, unlike genuine application windows, so
+            // filter on that.
             readonly property var sortedToplevels: {
-                var arr = Hyprland.toplevels.values.slice()
+                var arr = Hyprland.toplevels.values.filter(function (tl) {
+                    return tl.workspace !== null
+                })
                 arr.sort(function (a, b) {
                     return a.address < b.address ? -1 : (a.address > b.address ? 1 : 0)
                 })
