@@ -1407,6 +1407,13 @@ Variants {
                 WlrLayershell.namespace: "window-switcher"
                 WlrLayershell.layer: WlrLayer.Top
 
+                // Hyprland.toplevels includes things hyprctl clients doesn't
+                // (e.g. fcitx's "Input" / "Default IME" popups) - those never
+                // get a real workspace assigned, unlike genuine windows.
+                readonly property var filteredToplevels: Hyprland.toplevels.values.filter(function (tl) {
+                    return tl.workspace !== null
+                })
+
                 HyprlandFocusGrab {
                     windows: [ winSwitchPopup ]
                     active: true
@@ -1427,7 +1434,7 @@ Variants {
                         spacing: 2
 
                         Text {
-                            visible: Hyprland.toplevels.values.length === 0
+                            visible: winSwitchPopup.filteredToplevels.length === 0
                             text: root.isGerman ? "Keine Fenster ge\u00f6ffnet" : "No open windows"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
@@ -1435,7 +1442,7 @@ Variants {
                         }
 
                         Repeater {
-                            model: Hyprland.toplevels
+                            model: winSwitchPopup.filteredToplevels
 
                             Rectangle {
                                 id: winRow
