@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
+import Quickshell.Services.Mpris
 
 Variants {
     id: root
@@ -70,6 +71,17 @@ Variants {
         readonly property var workspaceIds: modelData.name === "DP-1" ? [1, 2, 3, 4, 9] : [5, 6, 7, 8]
         readonly property var activeToplevel: Hyprland.activeToplevel
         readonly property string titleText: (activeToplevel && activeToplevel.monitor && activeToplevel.monitor.name === modelData.name) ? activeToplevel.title : ""
+
+        // Prefer whichever MPRIS player (Spotify, a browser tab playing
+        // YT Music, etc.) is actually playing; fall back to the first one
+        // so a paused track still shows.
+        readonly property var activePlayer: {
+            var players = Mpris.players.values
+            for (var i = 0; i < players.length; i++) {
+                if (players[i].isPlaying) return players[i]
+            }
+            return players.length > 0 ? players[0] : null
+        }
 
         Loader {
             active: modelData === Quickshell.screens[0]
@@ -356,15 +368,64 @@ Variants {
         }
 
         // ================= CENTER =================
-        Text {
+        // The focused monitor shows the active window's title; other
+        // monitors have nothing better to show there, so use that space
+        // for the currently playing track instead.
+        Item {
+            id: centerContainer
             visible: !bar.taskbarMode
-            anchors.centerIn: parent
-            width: Math.min(implicitWidth, 500)
-            elide: Text.ElideRight
-            text: bar.titleText
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 13
-            color: "#c0caf5"
+            // Center in the whole bar by default; only shift off that if it
+            // would actually overlap the left or right pill group (their
+            // widths aren't equal, so bar-centering isn't always safe).
+            readonly property real barCenteredX: (bar.width - width) / 2
+            x: Math.min(Math.max(centerContainer.barCenteredX, leftRow.x + leftRow.width), rightRow.x - width)
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(centerRow.implicitWidth, 500)
+            height: centerRow.implicitHeight
+            clip: true
+
+            readonly property bool isFocusedMonitor: Hyprland.focusedMonitor !== null && Hyprland.focusedMonitor.name === bar.modelData.name
+            readonly property bool showingMedia: !centerContainer.isFocusedMonitor && bar.activePlayer !== null && bar.activePlayer.trackTitle !== ""
+            readonly property string mainText: centerContainer.isFocusedMonitor ? bar.titleText : (centerContainer.showingMedia ? bar.activePlayer.trackTitle : "")
+            readonly property string artistText: centerContainer.showingMedia ? (bar.activePlayer.trackArtist || "") : ""
+
+            Row {
+                id: centerRow
+                spacing: 6
+
+                Text {
+                    text: centerContainer.mainText
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    font.bold: centerContainer.showingMedia
+                    color: "#c0caf5"
+                }
+                Text {
+                    visible: centerContainer.artistText !== ""
+                    text: "—"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: "#1793d1"
+                }
+                Text {
+                    visible: centerContainer.artistText !== ""
+                    text: centerContainer.artistText
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: "#7aa2f7"
+                }
+            }
+
+            NumberAnimation {
+                target: centerRow
+                property: "x"
+                running: centerRow.implicitWidth > centerContainer.width
+                loops: Animation.Infinite
+                from: centerContainer.width
+                to: -centerRow.implicitWidth
+                duration: Math.max(4000, centerRow.implicitWidth * 20)
+                onRunningChanged: if (!running) centerRow.x = 0
+            }
         }
 
         // ================= TASKBAR (toggled via Arch logo) =================
@@ -1146,7 +1207,7 @@ Variants {
                 screen: bar.modelData
                 anchors { top: true; right: true }
                 margins { top: 34; right: bar.width - (rightRow.x + clockPill.x + clockPill.width) }
-                implicitWidth: 230
+                implicitWidth: Math.max(230, clockTooltipCol.implicitWidth + 20)
                 implicitHeight: clockTooltipCol.implicitHeight + 20
                 color: "transparent"
                 WlrLayershell.namespace: "clock-tooltip"
