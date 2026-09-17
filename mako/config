@@ -1,0 +1,40 @@
+# Layout / behavior. Colors come from the active aether palette, not
+# hardcoded here - see aether/custom/mako/colors.ini (template, edit
+# that, not this include) and mako/colors.ini (generated output).
+include=~/.config/mako/colors.ini
+
+font=JetBrainsMono Nerd Font 11
+format=<span size="small">%a</span>\n<b>%s</b>\n%b
+width=380
+height=130
+padding=12
+border-size=2
+border-radius=12
+outer-margin=44,16
+margin=8
+anchor=top-right
+layer=top
+
+icons=1
+icon-location=left
+max-icon-size=40
+icon-border-radius=8
+
+max-visible=5
+sort=-time
+history=1
+max-history=20
+default-timeout=5000
+
+[urgency=critical]
+default-timeout=0
+ignore-timeout=1
+
+[app-name=Spotify]
+invisible=1
+
+[mode=do-not-disturb]
+invisible=1
+
+[mode=do-not-disturb app-name=notify-send]
+invisible=0

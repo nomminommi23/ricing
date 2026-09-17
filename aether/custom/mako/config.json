@@ -1,0 +1,4 @@
+{
+    "template": "colors.ini",
+    "destination": "~/.config/mako/colors.ini"
+}

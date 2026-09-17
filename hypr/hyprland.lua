@@ -594,7 +594,7 @@ hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "C", hl.dsp.exec_cmd("env GTK_THEM
 -- Autostart
 hl.on("hyprland.start", function()
     hl.exec_cmd("quickshell -c default")
-    hl.exec_cmd("dunst")
+    hl.exec_cmd("mako")
     hl.exec_cmd("nm-applet --indicator")
     hl.exec_cmd("swaybg -i ~/.config/hypr/wallpaper.png -m fill")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
