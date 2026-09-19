@@ -168,6 +168,13 @@ def main():
                 sys.exit(f"no artwork for cursor shape '{n}'")
         with open(os.path.join(DEST, "index.theme"), "w") as f:
             f.write(f"[Icon Theme]\nName={NAME}\nComment={DESC}\nInherits={os.path.basename(BASE)}\n")
+        # Xcursor's fallback theme is "default": apps that never see XCURSOR_THEME (Steam, Proton
+        # containers, anything started before the env was set) land here and get ours too.
+        fallback = os.path.join(os.path.dirname(DEST), "default", "index.theme")
+        if not os.path.exists(fallback) or NAME in open(fallback).read():
+            os.makedirs(os.path.dirname(fallback), exist_ok=True)
+            with open(fallback, "w") as f:
+                f.write(f"[Icon Theme]\nName=Default\nComment=Points at {NAME}\nInherits={NAME}\n")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"installed {NAME} -> {DEST}")
