@@ -57,6 +57,11 @@ hl.env("XCURSOR_SIZE", 24)
 
 hl.env("HYPRCURSOR_SIZE", 24)
 
+-- Arch-logo pointer, built by hypr/cursor/build.py into ~/.local/share/icons/ArchLogo
+hl.env("XCURSOR_THEME", "ArchLogo")
+
+hl.env("HYPRCURSOR_THEME", "ArchLogo")
+
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 
 hl.env("GDK_BACKEND", "wayland,x11")
@@ -605,4 +610,6 @@ end)
 hl.on("config.reloaded", function()
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme \"Materia-dark\"")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme \"prefer-dark\"")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme \"ArchLogo\"")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-size 24")
 end)

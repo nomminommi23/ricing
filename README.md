@@ -13,6 +13,7 @@ My personal dotfiles for a [Hyprland](https://hyprland.org/) desktop on Arch Lin
 | Bar | Custom [Quickshell](https://quickshell.org/) shell (`quickshell/default/`) — replaces Waybar entirely |
 | Launcher | Rofi |
 | Terminal | Kitty |
+| Cursor | Custom Arch-logo cursor set (pointer, text, resize, wait spinner, …) in the rice palette — artwork in [`shapes.py`](hypr/cursor/shapes.py), [`build.py`](hypr/cursor/build.py) installs a Hyprcursor and an XCursor theme to `~/.local/share/icons/ArchLogo` |
 | Notifications | [mako](mako/) — themed via aether, same as the rest |
 | Theming | [aether](aether/) — palette-driven theme generator |
 | Qt/GTK theming | qt5ct, qt6ct, nwg-look |
@@ -36,6 +37,16 @@ Waybar has been fully retired. The whole top bar is one Quickshell shell (`quick
 All the stats are pulled by small shell scripts in `quickshell/default/scripts/` rather than baked into the QML.
 
 Hyprland itself is configured via [`hypr/hyprland.lua`](hypr/hyprland.lua) (Hyprland's Lua config API) — that's the active config; `hyprland.conf` is kept around for reference but is no longer loaded. One consequence: `hyprctl dispatch` (and anything sending it a raw dispatch string, like this bar's workspace/window-switcher clicks) needs the new `hl.dsp.*` Lua-expression syntax instead of the classic one, e.g. `hl.dsp.focus({workspace = 1})` rather than `workspace 1`.
+
+## Cursor
+
+The mouse cursor is a custom theme, `ArchLogo`, with every shape redrawn in the rice style instead of only the arrow:
+
+- **Default pointer** — the Arch logo, rotated like a classic arrow, plain accent blue without an outline. Copy / context-menu / alias / help / no-drop are the same arrow with a small badge, and the link pointer is the logo upright
+- **Everything else** — text I-beam, resize arrows (edges, corners, column/row, all-direction), crosshair, cell, grab/grabbing hand, zoom, X, and a red not-allowed sign. These have a dark outline plus a light rim so they stay visible on blue or dark backgrounds
+- **Animated** — `wait` is a spinning ring, `progress` is the arrow with a small spinner badge
+
+The artwork is drawn procedurally in [`hypr/cursor/shapes.py`](hypr/cursor/shapes.py); [`hypr/cursor/build.py`](hypr/cursor/build.py) renders it (needs `rsvg-convert` and `hyprcursor-util`) into a Hyprcursor theme for Hyprland and an XCursor theme for GTK/Qt/XWayland apps, both installed to `~/.local/share/icons/ArchLogo`. Adwaita is only used as the shape/alias list and fallback. After editing `shapes.py`, run `python3 hypr/cursor/build.py` and `hyprctl setcursor ArchLogo 24`. `hyprland.lua` sets the theme via `XCURSOR_THEME` / `HYPRCURSOR_THEME` and gsettings.
 
 ## Theming (aether)
 
@@ -117,7 +128,7 @@ Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`
 ## Layout
 
 ```
-hypr/        Hyprland config (hyprland.lua is active, .conf kept for reference) + wallpaper.png
+hypr/        Hyprland config (hyprland.lua is active, .conf kept for reference) + wallpaper.png + cursor/ (cursor theme source)
 quickshell/  The bar (Bar.qml + helper QML components + scripts/)
 rofi/        Launcher config + theme
 kitty/       Terminal config + theme
