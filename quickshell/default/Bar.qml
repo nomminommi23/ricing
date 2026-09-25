@@ -1177,11 +1177,20 @@ Variants {
                         spacing: 4
 
                         Text {
-                            text: bar.connType === "" ? (root.isGerman ? "Nicht verbunden" : "Not connected") : (bar.connType === "wifi" ? (root.isGerman ? "WLAN: " : "Wi-Fi: ") + bar.connName : (root.isGerman ? "Kabelgebunden" : "Wired"))
+                            text: bar.connType === "" ? (root.isGerman ? "Nicht verbunden" : "Not connected") : (bar.connType === "wifi" ? (root.isGerman ? "WLAN" : "Wi-Fi") : (root.isGerman ? "Kabelgebunden" : "Wired"))
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             font.bold: true
                             color: "#c0caf5"
+                        }
+                        Text {
+                            visible: bar.connType === "wifi"
+                            Layout.fillWidth: true
+                            text: "SSID: " + (bar.connName || "n/a")
+                            wrapMode: Text.WrapAnywhere
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: "#a6e3a1"
                         }
                         Text {
                             text: (bar.showPublicIp ? (root.isGerman ? "Öffentliche IP: " : "Public IP: ") + (bar.publicIpLoading ? "…" : (bar.publicIp || "n/a")) : (root.isGerman ? "Lokale IP: " : "Local IP: ") + (bar.localIp || "n/a"))
