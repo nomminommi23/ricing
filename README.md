@@ -25,13 +25,14 @@ Waybar has been fully retired. The whole top bar is one Quickshell shell (`quick
 
 - **Logo + workspaces** — per-monitor workspace pills (Hyprland IPC), click to switch. Click the logo itself to toggle taskbar mode (below)
 - **Taskbar mode** — clicking the logo swaps the workspace pills, window title, and stat pills for a compact Windows-style taskbar of every open window, shown as icon buttons (resolved via `DesktopEntries.heuristicLookup()`, the same mechanism app launchers use, falling back to the title's first letter if no icon is found). Hover a button for the full title, click to focus. Clock and power button stay visible in both modes
-- **Window switcher** — a button between the workspaces and the window title that drops down a list of every open window across all workspaces; click one to focus it. Also bound to `Mod+Shift+A`
+- **Window switcher** — `Mod+Shift+A` drops down a list of every open window across all workspaces; click one to focus it
 - **Active window title** — per-monitor, shows the title of whichever window is focused on that specific screen
 - **System tray** — StatusNotifierItem icons with left-click activate / right-click context menu
 - **CPU / RAM / disk / GPU** — live stats pills with hover tooltips (per-core CPU breakdown, load average, memory/disk usage, GPU temperature + VRAM); click the CPU pill to toggle it between usage % and temperature
 - **Volume** — click opens the mixer, right-click mutes, scroll adjusts volume (via `wpctl`)
 - **Network** — shows the active connection (Wi-Fi SSID or wired); hover shows the local IP, click toggles to the public IP
 - **Clock** — hover for the full date + ISO week number, click opens a small month calendar
+- **Notification panel** — the bell button (with an unread badge) opens a panel down the right screen edge, top to bottom, listing recent notifications from mako's history. Click a notification (or “Mark all read”) to mark it read and drop it from the list. mako can't delete single history entries, so read state is kept by `scripts/notifs.py` in `~/.local/state/quickshell/notifs-read`
 - **Power menu** — restart / shutdown / logout dropdown
 
 All the stats are pulled by small shell scripts in `quickshell/default/scripts/` rather than baked into the QML.

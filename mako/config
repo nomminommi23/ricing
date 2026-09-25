@@ -23,7 +23,7 @@ icon-border-radius=8
 max-visible=5
 sort=-time
 history=1
-max-history=20
+max-history=50
 default-timeout=5000
 
 [urgency=critical]

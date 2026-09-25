@@ -97,6 +97,8 @@ Variants {
         property string hovered: ""
         property bool menuOpen: false
         property bool calendarOpen: false
+        property bool notifOpen: false
+        property var notifList: []
         property bool taskbarMode: false
         property bool clockHovering: false
         property bool netHovering: false
@@ -180,6 +182,77 @@ Variants {
 
         Timer { interval: 100; running: true; repeat: false; onTriggered: statsProc.running = true }
         Timer { interval: 1000; running: true; repeat: true; onTriggered: statsProc.running = true }
+
+        Component {
+            id: bellComp
+            Rectangle {
+                anchors.fill: parent
+                radius: 10
+                color: (bellArea.containsMouse || bar.notifOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: bar.notifList.length > 0 ? "\uf0f3" : "\uf0a2"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 14
+                    color: (bellArea.containsMouse || bar.notifOpen) ? "#0f111a" : (bar.notifList.length > 0 ? "#1793d1" : "#565f89")
+                }
+
+                Rectangle {
+                    visible: bar.notifList.length > 0
+                    anchors { top: parent.top; right: parent.right; topMargin: -3; rightMargin: -3 }
+                    width: Math.max(14, badgeText.implicitWidth + 6)
+                    height: 14
+                    radius: 7
+                    color: "#f7768e"
+                    Text {
+                        id: badgeText
+                        anchors.centerIn: parent
+                        text: bar.notifList.length > 99 ? "99+" : bar.notifList.length
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: "#0f111a"
+                    }
+                }
+
+                MouseArea {
+                    id: bellArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        bar.notifOpen = !bar.notifOpen
+                        if (bar.notifOpen) notifProc.running = true
+                    }
+                }
+            }
+        }
+
+        // ---- notification panel (mako history minus what was marked read) ----
+        Process {
+            id: notifProc
+            command: ["python3", "/home/nico/.config/quickshell/default/scripts/notifs.py"]
+            stdout: StdioCollector { id: notifCollector }
+            onExited: {
+                try { bar.notifList = JSON.parse(notifCollector.text) } catch (e) {}
+            }
+        }
+
+        Process {
+            id: notifReadProc
+            onExited: notifProc.running = true
+        }
+
+        function markRead(keys) {
+            var gone = {}
+            keys.forEach(function (k) { gone[k] = true })
+            notifList = notifList.filter(function (n) { return !gone[n.key] })
+            notifReadProc.command = ["python3", "/home/nico/.config/quickshell/default/scripts/notifs.py", "read"].concat(keys)
+            notifReadProc.running = true
+        }
+
+        Timer { interval: 400; running: true; repeat: false; onTriggered: notifProc.running = true }
+        Timer { interval: 4000; running: true; repeat: true; onTriggered: notifProc.running = true }
 
         Process {
             id: netProc
@@ -342,28 +415,12 @@ Variants {
                 }
             }
 
-            Rectangle {
-                id: winSwitchBtn
+            Loader {
+                id: bellBtn
                 visible: !bar.taskbarMode
-                Layout.preferredWidth: visible ? 26 : 0
+                Layout.preferredWidth: visible ? 32 : 0
                 Layout.preferredHeight: 26
-                radius: 10
-                color: (winSwitchArea.containsMouse || root.windowSwitcherOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
-
-                Text {
-                    anchors.centerIn: parent
-                    text: ""
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: (winSwitchArea.containsMouse || root.windowSwitcherOpen) ? "#0f111a" : "#7aa2f7"
-                }
-
-                MouseArea {
-                    id: winSwitchArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: root.windowSwitcherOpen = !root.windowSwitcherOpen
-                }
+                sourceComponent: bellComp
             }
         }
 
@@ -968,6 +1025,13 @@ Variants {
                 }
             }
 
+            Loader {
+                visible: bar.taskbarMode
+                Layout.preferredWidth: visible ? 32 : 0
+                Layout.preferredHeight: 26
+                sourceComponent: bellComp
+            }
+
             Rectangle {
                 id: clockPill
                 Layout.preferredWidth: 100
@@ -1260,6 +1324,161 @@ Variants {
         }
 
         LazyLoader {
+            active: bar.notifOpen
+
+            PanelWindow {
+                id: notifWindow
+                screen: bar.modelData
+                anchors { top: true; right: true; bottom: true }
+                margins { top: 34; right: 8; bottom: 8 }
+                implicitWidth: 380
+                color: "transparent"
+                WlrLayershell.namespace: "notif-panel"
+                WlrLayershell.layer: WlrLayer.Top
+
+                HyprlandFocusGrab {
+                    windows: [ notifWindow ]
+                    active: true
+                    onCleared: bar.notifOpen = false
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 12
+                    color: "#f01a1b26"
+                    border.width: 1
+                    border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.isGerman ? "Benachrichtigungen" : "Notifications"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                                font.bold: true
+                                color: "#c0caf5"
+                            }
+
+                            Rectangle {
+                                visible: bar.notifList.length > 0
+                                Layout.preferredWidth: readAllText.implicitWidth + 16
+                                Layout.preferredHeight: 24
+                                radius: 8
+                                color: readAllArea.containsMouse ? "#1793d1" : Qt.rgba(0.478, 0.635, 0.969, 0.15)
+
+                                Text {
+                                    id: readAllText
+                                    anchors.centerIn: parent
+                                    text: "\uf00c  " + (root.isGerman ? "Alle gelesen" : "Mark all read")
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                    color: readAllArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                }
+
+                                MouseArea {
+                                    id: readAllArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: bar.markRead(bar.notifList.map(function (n) { return n.key }))
+                                }
+                            }
+                        }
+
+                        Text {
+                            visible: bar.notifList.length === 0
+                            Layout.fillWidth: true
+                            Layout.topMargin: 20
+                            horizontalAlignment: Text.AlignHCenter
+                            text: root.isGerman ? "Alles gelesen" : "All caught up"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: "#565f89"
+                        }
+
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            spacing: 6
+                            model: bar.notifList
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: ListView.view.width
+                                height: cardCol.implicitHeight + 16
+                                radius: 10
+                                color: cardArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.18) : Qt.rgba(0.478, 0.635, 0.969, 0.08)
+                                border.width: modelData.urgency === "critical" ? 1 : 0
+                                border.color: "#f7768e"
+
+                                ColumnLayout {
+                                    id: cardCol
+                                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
+                                    spacing: 2
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.app
+                                            elide: Text.ElideRight
+                                            font.family: "JetBrainsMono Nerd Font"
+                                            font.pixelSize: 10
+                                            color: "#1793d1"
+                                        }
+                                        Text {
+                                            text: "\uf00c"
+                                            font.family: "JetBrainsMono Nerd Font"
+                                            font.pixelSize: 11
+                                            color: cardArea.containsMouse ? "#a6e3a1" : "#565f89"
+                                        }
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.summary
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        color: "#c0caf5"
+                                    }
+                                    Text {
+                                        visible: modelData.body !== ""
+                                        Layout.fillWidth: true
+                                        text: modelData.body
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 4
+                                        elide: Text.ElideRight
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 11
+                                        color: "#9aa5ce"
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: cardArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: bar.markRead([modelData.key])
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyLoader {
             active: bar.calendarOpen
 
             PanelWindow {
@@ -1470,7 +1689,7 @@ Variants {
                 id: winSwitchPopup
                 screen: bar.modelData
                 anchors { top: true; left: true }
-                margins { top: 34; left: leftRow.x + winSwitchBtn.x }
+                margins { top: 34; left: leftRow.x + bellBtn.x + bellBtn.width + 6 }
                 implicitWidth: 320
                 implicitHeight: winSwitchCol.implicitHeight + 16
                 color: "transparent"
