@@ -28,9 +28,9 @@ Waybar has been fully retired. The whole top bar is one Quickshell shell (`quick
 - **Window switcher** — `Mod+Shift+A` drops down a list of every open window across all workspaces; click one to focus it
 - **Active window title** — per-monitor, shows the title of whichever window is focused on that specific screen
 - **System tray** — StatusNotifierItem icons with left-click activate / right-click context menu
-- **CPU / RAM / disk / GPU** — live stats pills with hover tooltips (per-core CPU breakdown, load average, memory/disk usage, GPU temperature + VRAM); click the CPU pill to toggle it between usage % and temperature
+- **CPU / RAM / disk / GPU** — live stats pills, each with a titled hover tooltip; click the CPU or GPU pill to toggle it between usage % and temperature (the icon stays put, only the color/value change). The disk pill defaults to `/`; click it to cycle through every real mounted filesystem (a USB stick, `/boot`, …), hovering always lists all of them with their device name (e.g. `nvme0n1p2`), used/free space and live read/write speed
 - **Volume** — click opens the mixer, right-click mutes, scroll adjusts volume (via `wpctl`)
-- **Network** — shows the active connection (Wi-Fi SSID or wired); hover shows the local IP, click toggles to the public IP
+- **Network** — shows the active connection (Wi-Fi SSID or wired); hover shows the local IP (click toggles to the public IP), the network device (e.g. `enp7s0`) and the live up/download rate in decimal bit units (Kbit/Mbit/Gbit/s, like a speedtest), refreshed every second independently of the slower connection/SSID lookup
 - **Clock** — hover for the full date + ISO week number, click opens a small month calendar
 - **Notification panel** — the bell button (with an unread badge) opens a panel down the right screen edge, top to bottom, listing recent notifications from mako's history. Click a notification (or “Mark all read”) to mark it read and drop it from the list. mako can't delete single history entries, so read state is kept by `scripts/notifs.py` in `~/.local/state/quickshell/notifs-read`
 - **Power menu** — restart / shutdown / logout dropdown

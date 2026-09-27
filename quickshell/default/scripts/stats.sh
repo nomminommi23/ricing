@@ -1,12 +1,18 @@
 #!/bin/bash
 # Emits pipe-separated system stats for the Quickshell StatsWidget:
-# cpu|memPct|memUsedGB|memTotalGB|diskPct|diskTotalGB|diskUsedGB|diskAvailGB|load1|load5|load15|tempC|core0,core1,...|gpuUtil|gpuTemp|gpuMemUsed|gpuMemTotal
+# cpu|memPct|memUsedGB|memTotalGB|diskPct|diskTotalGB|diskUsedGB|diskAvailGB|load1|load5|load15|tempC|core0,core1,...|gpuUtil|gpuTemp|gpuMemUsed|gpuMemTotal|mounts
+# mounts is "path,pct,totalGiB,usedGiB,availGiB,device,readKBps,writeKBps" per real mounted
+# filesystem, separated by ";", root (/) always first
 
 snap1=$(mktemp)
 snap2=$(mktemp)
 grep '^cpu' /proc/stat > "$snap1"
+io1=$(cat /proc/diskstats)
+t1=$(date +%s%N)
 sleep 0.2
 grep '^cpu' /proc/stat > "$snap2"
+io2=$(cat /proc/diskstats)
+t2=$(date +%s%N)
 
 cpu_result=$(awk '
 NR==FNR {
@@ -23,6 +29,16 @@ NR==FNR {
     print $1, pct
 }' "$snap1" "$snap2")
 rm -f "$snap1" "$snap2"
+
+# Read/write throughput per block device, from the same 0.2s window as the CPU sample
+# above (/proc/diskstats sector counts are in 512-byte units regardless of the device's
+# real sector size).
+io_result=$(awk -v dt="$(awk -v a="$t1" -v b="$t2" 'BEGIN{print (b-a)/1000000000}')" '
+NR==FNR { rs[$3] = $6; ws[$3] = $10; next }
+$3 in rs {
+    dr = $6 - rs[$3]; dw = $10 - ws[$3]
+    printf "%s|%.0f|%.0f\n", $3, dr*512/1024/dt, dw*512/1024/dt
+}' <(echo "$io1") <(echo "$io2"))
 
 cpu=$(echo "$cpu_result" | awk '$1=="cpu"{print $2}')
 percore=$(echo "$cpu_result" | awk '$1!="cpu"{printf "%s,", $2}' | sed 's/,$//')
@@ -46,4 +62,25 @@ except Exception:
 gpu_line=$(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null | tr -d ' ' | tr ',' '|')
 [ -z "$gpu_line" ] && gpu_line="NA|NA|NA|NA"
 
-echo "${cpu}|${mem_line}|${disk_line}|${load}|${temp}|${percore}|${gpu_line}"
+# Every real mounted filesystem (skips virtual/pseudo ones), root first so the
+# disk pill's default mount is stable regardless of mount order. --output (not -P)
+# so the source device is right there instead of a second df call per mount.
+real_mounts=$(df --output=source,pcent,size,used,avail,target \
+    -x tmpfs -x devtmpfs -x squashfs -x proc -x sysfs -x overlay -x efivarfs \
+    -x devpts -x cgroup -x cgroup2 -x pstore -x bpf -x tracefs -x mqueue \
+    -x hugetlbfs -x fusectl -x configfs -x debugfs -x autofs -x binfmt_misc -x ramfs \
+    2>/dev/null | tail -n +2)
+ordered_mounts=$(printf '%s\n' "$real_mounts" | awk '$6=="/"'; printf '%s\n' "$real_mounts" | awk '$6!="/"')
+mounts=$(awk -v OFS=',' '
+NR==FNR { split($0, a, "|"); io_r[a[1]] = a[2]; io_w[a[1]] = a[3]; next }
+NF {
+    gsub("%", "", $2)
+    dev = $1
+    sub("^/dev/", "", dev)
+    r = (dev in io_r) ? io_r[dev] : 0
+    w = (dev in io_w) ? io_w[dev] : 0
+    printf "%s,%s,%.0f,%.0f,%.0f,%s,%s,%s;", $6, $2, $3/1024/1024, $4/1024/1024, $5/1024/1024, dev, r, w
+}' <(echo "$io_result") <(printf '%s\n' "$ordered_mounts"))
+mounts=${mounts%;}
+
+echo "${cpu}|${mem_line}|${disk_line}|${load}|${temp}|${percore}|${gpu_line}|${mounts}"

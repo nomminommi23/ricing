@@ -18,6 +18,19 @@ Variants {
 
     property bool windowSwitcherOpen: false
 
+    function fmtRate(kbps) {
+        return kbps >= 1024 ? (kbps / 1024).toFixed(1) + " MB/s" : Math.round(kbps) + " KB/s"
+    }
+
+    // Network throughput, speedtest-style: decimal bit units (1 KB/s = 8000 bit/s), not binary bytes.
+    function fmtBitrate(kbps) {
+        var bits = kbps * 1024 * 8
+        if (bits >= 1000000000) return (bits / 1000000000).toFixed(2) + " Gbit/s"
+        if (bits >= 1000000) return (bits / 1000000).toFixed(1) + " Mbit/s"
+        if (bits >= 1000) return (bits / 1000).toFixed(0) + " Kbit/s"
+        return Math.round(bits) + " bit/s"
+    }
+
     function isoWeek(d) {
         let date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
         let day = (date.getUTCDay() + 6) % 7;
@@ -103,7 +116,13 @@ Variants {
         property bool clockHovering: false
         property bool netHovering: false
         property bool showCpuTemp: false
+        property bool showGpuTemp: false
         property bool showPublicIp: false
+        property var diskMounts: []
+        property int diskIndex: 0
+        readonly property var currentDisk: diskMounts.length > diskIndex
+            ? diskMounts[diskIndex]
+            : { path: "/", pct: diskPct, total: diskTotal, used: diskUsed, avail: diskAvail, device: "", readKBps: 0, writeKBps: 0 }
 
         // ---- stats ----
         property int cpuPct: 0
@@ -130,6 +149,12 @@ Variants {
         // ---- network ----
         property string connType: ""
         property string connName: ""
+        property string netDevice: ""
+        property real netRxKBps: 0
+        property real netTxKBps: 0
+        property real netPrevT: 0
+        property real netPrevRx: 0
+        property real netPrevTx: 0
         property string localIp: ""
         property string publicIp: ""
         property bool publicIpLoading: false
@@ -171,6 +196,17 @@ Variants {
                 bar.load15 = p[10]
                 bar.tempC = p[11]
                 bar.perCore = p.length > 12 && p[12] !== "" ? p[12].split(",").map(Number) : []
+                if (p.length > 17 && p[17] !== "") {
+                    bar.diskMounts = p[17].split(";").map(function (m) {
+                        var f = m.split(",")
+                        return {
+                            path: f[0], pct: parseInt(f[1]) || 0, total: parseFloat(f[2]) || 0,
+                            used: parseFloat(f[3]) || 0, avail: parseFloat(f[4]) || 0, device: f[5] || "",
+                            readKBps: parseFloat(f[6]) || 0, writeKBps: parseFloat(f[7]) || 0
+                        }
+                    })
+                    if (bar.diskIndex >= bar.diskMounts.length) bar.diskIndex = 0
+                }
                 if (p.length > 16) {
                     bar.gpuUtil = p[13]
                     bar.gpuTemp = p[14]
@@ -256,18 +292,47 @@ Variants {
 
         Process {
             id: netProc
-            command: ["bash", "-c", "conn=$(nmcli -t -f TYPE,STATE,CONNECTION device status 2>/dev/null | awk -F: '$2==\"connected\"{print $1; exit}'); if [ \"$conn\" = \"wifi\" ]; then name=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '$1==\"yes\"{print $2; exit}'); else name=\"LAN\"; fi; ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i==\"src\") print $(i+1)}'); echo \"${conn}|${name}|${ip}\""]
+            command: ["bash", "-c", "conn_line=$(nmcli -t -f TYPE,STATE,CONNECTION,DEVICE device status 2>/dev/null | awk -F: '$2==\"connected\"{print $1\"|\"$4; exit}'); conn=${conn_line%%|*}; dev=${conn_line##*|}; if [ \"$conn\" = \"wifi\" ]; then name=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '$1==\"yes\"{print $2; exit}'); else name=\"LAN\"; fi; ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i==\"src\") print $(i+1)}'); echo \"${conn}|${name}|${ip}|${dev}\""]
             stdout: StdioCollector { id: netCollector }
             onExited: {
                 var parts = netCollector.text.trim().split("|")
                 bar.connType = parts[0] || ""
                 bar.connName = parts[1] || ""
                 bar.localIp = parts[2] || ""
+                var dev = parts[3] || ""
+                if (dev !== bar.netDevice) bar.netPrevT = 0 // switched interface: drop the stale baseline
+                bar.netDevice = dev
             }
         }
 
         Timer { interval: 300; running: true; repeat: false; onTriggered: netProc.running = true }
         Timer { interval: 8000; running: true; repeat: true; onTriggered: netProc.running = true }
+
+        // Throughput for whatever netProc found as the active device, sampled every second
+        // independently of the (slower) connection/SSID lookup above so up/down feels live.
+        Process {
+            id: netIoProc
+            command: ["bash", "-c", "d=\"$0\"; if [ -n \"$d\" ] && [ -d \"/sys/class/net/$d/statistics\" ]; then cat \"/sys/class/net/$d/statistics/rx_bytes\" \"/sys/class/net/$d/statistics/tx_bytes\"; else echo 0; echo 0; fi", bar.netDevice]
+            stdout: StdioCollector { id: netIoCollector }
+            onExited: {
+                var lines = netIoCollector.text.trim().split("\n")
+                var rx = parseFloat(lines[0]) || 0
+                var tx = parseFloat(lines[1]) || 0
+                var now = Date.now()
+                if (bar.netPrevT > 0) {
+                    var dt = (now - bar.netPrevT) / 1000
+                    if (dt > 0) {
+                        bar.netRxKBps = Math.max(0, rx - bar.netPrevRx) / 1024 / dt
+                        bar.netTxKBps = Math.max(0, tx - bar.netPrevTx) / 1024 / dt
+                    }
+                }
+                bar.netPrevT = now
+                bar.netPrevRx = rx
+                bar.netPrevTx = tx
+            }
+        }
+
+        Timer { interval: 1000; running: true; repeat: true; onTriggered: netIoProc.running = true }
 
         Process {
             id: publicIpProc
@@ -800,7 +865,7 @@ Variants {
                     anchors.centerIn: parent
                     spacing: 4
                     Text {
-                        text: bar.showCpuTemp ? "" : ""
+                        text: ""
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         color: bar.hovered === "cpu" ? "#0f111a" : (bar.showCpuTemp ? (bar.tempCritical ? "#f7768e" : "#f9e2af") : "#7aa2f7")
@@ -879,7 +944,7 @@ Variants {
                         color: bar.hovered === "disk" ? "#0f111a" : "#c0caf5"
                     }
                     Text {
-                        text: bar.diskPct + "%"
+                        text: bar.currentDisk.pct + "%"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
@@ -893,6 +958,7 @@ Variants {
                     hoverEnabled: true
                     onEntered: bar.hovered = "disk"
                     onExited: bar.hovered = ""
+                    onClicked: if (bar.diskMounts.length > 0) bar.diskIndex = (bar.diskIndex + 1) % bar.diskMounts.length
                 }
             }
 
@@ -912,10 +978,10 @@ Variants {
                         text: "󰢮"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "gpu" ? "#0f111a" : "#a6e3a1"
+                        color: bar.hovered === "gpu" ? "#0f111a" : (bar.showGpuTemp ? "#f9e2af" : "#a6e3a1")
                     }
                     Text {
-                        text: bar.gpuUtil + "%"
+                        text: bar.showGpuTemp ? (bar.gpuTemp + "°C") : (bar.gpuUtil + "%")
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
@@ -929,6 +995,7 @@ Variants {
                     hoverEnabled: true
                     onEntered: bar.hovered = "gpu"
                     onExited: bar.hovered = ""
+                    onClicked: bar.showGpuTemp = !bar.showGpuTemp
                 }
             }
 
@@ -1090,7 +1157,7 @@ Variants {
                 screen: bar.modelData
                 anchors { top: true; right: true }
                 margins { top: 34; right: bar.width - (rightRow.x + statsPopupAnchor.x + statsPopupAnchor.width) }
-                implicitWidth: (bar.hovered === "cpu" && bar.perCore.length > 0) ? 320 : (bar.hovered === "vol" ? 300 : 220)
+                implicitWidth: (bar.hovered === "cpu" && bar.perCore.length > 0) ? 320 : (bar.hovered === "vol" ? 300 : (bar.hovered === "disk" ? 300 : 220))
                 implicitHeight: tooltipCol.implicitHeight + 20
                 color: "transparent"
                 WlrLayershell.namespace: "stats-tooltip"
@@ -1111,6 +1178,19 @@ Variants {
                         anchors.margins: 10
                         spacing: 4
 
+                        Text {
+                            text: ({
+                                cpu: "CPU",
+                                mem: root.isGerman ? "Arbeitsspeicher" : "Memory",
+                                disk: root.isGerman ? "Speicher" : "Storage",
+                                gpu: "GPU",
+                                vol: root.isGerman ? "Lautstärke" : "Volume",
+                            })[bar.hovered] || ""
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 13
+                            font.bold: true
+                            color: "#1793d1"
+                        }
                         Text {
                             visible: bar.hovered === "cpu"
                             text: (root.isGerman ? "Last (1/5/15 Min): " : "Load (1/5/15 min): ") + bar.load1 + " / " + bar.load5 + " / " + bar.load15
@@ -1157,33 +1237,49 @@ Variants {
                             font.pixelSize: 12
                             color: "#c0caf5"
                         }
-                        Text {
+                        ColumnLayout {
                             visible: bar.hovered === "disk"
-                            text: "/"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 13
-                            font.bold: true
-                            color: "#c0caf5"
+                            Layout.fillWidth: true
+                            spacing: 6
+
+                            Repeater {
+                                model: bar.diskMounts
+
+                                ColumnLayout {
+                                    required property int index
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 1
+
+                                    Text {
+                                        text: (index === bar.diskIndex ? "▸ " : "") + modelData.path + (modelData.device !== "" ? "  (" + modelData.device + ")" : "")
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 13
+                                        font.bold: index === bar.diskIndex
+                                        elide: Text.ElideMiddle
+                                        Layout.fillWidth: true
+                                        color: index === bar.diskIndex ? "#c0caf5" : "#9aa5ce"
+                                    }
+                                    Text {
+                                        text: modelData.pct + "%" + "  ·  " + (root.isGerman ? "Belegt " : "Used ") + modelData.used.toFixed(0) + " / " + modelData.total.toFixed(0) + " GiB" + "  ·  " + (root.isGerman ? "Frei " : "Free ") + modelData.avail.toFixed(0) + " GiB"
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 11
+                                        color: "#565f89"
+                                    }
+                                    Text {
+                                        text: "R: " + root.fmtRate(modelData.readKBps) + "   W: " + root.fmtRate(modelData.writeKBps)
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 11
+                                        color: "#565f89"
+                                    }
+                                }
+                            }
                         }
                         Text {
                             visible: bar.hovered === "disk"
-                            text: (root.isGerman ? "Belegt: " : "Used: ") + bar.diskUsed.toFixed(0) + " GiB"
+                            text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
                             font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 12
-                            color: "#7aa2f7"
-                        }
-                        Text {
-                            visible: bar.hovered === "disk"
-                            text: (root.isGerman ? "Frei: " : "Free: ") + bar.diskAvail.toFixed(0) + " GiB"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 12
-                            color: "#565f89"
-                        }
-                        Text {
-                            visible: bar.hovered === "disk"
-                            text: (root.isGerman ? "Gesamt: " : "Total: ") + bar.diskTotal.toFixed(0) + " GiB"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 12
+                            font.pixelSize: 11
                             color: "#565f89"
                         }
                         Text {
@@ -1198,6 +1294,13 @@ Variants {
                             text: "VRAM: " + bar.gpuMemUsed + " / " + bar.gpuMemTotal + " MiB"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
+                            color: "#565f89"
+                        }
+                        Text {
+                            visible: bar.hovered === "gpu"
+                            text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
                             color: "#565f89"
                         }
                         Text {
@@ -1241,10 +1344,16 @@ Variants {
                         spacing: 4
 
                         Text {
-                            text: bar.connType === "" ? (root.isGerman ? "Nicht verbunden" : "Not connected") : (bar.connType === "wifi" ? (root.isGerman ? "WLAN" : "Wi-Fi") : (root.isGerman ? "Kabelgebunden" : "Wired"))
+                            text: root.isGerman ? "Netzwerk" : "Network"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             font.bold: true
+                            color: "#1793d1"
+                        }
+                        Text {
+                            text: bar.connType === "" ? (root.isGerman ? "Nicht verbunden" : "Not connected") : (bar.connType === "wifi" ? (root.isGerman ? "WLAN" : "Wi-Fi") : (root.isGerman ? "Kabelgebunden" : "Wired"))
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
                             color: "#c0caf5"
                         }
                         Text {
@@ -1261,6 +1370,20 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
                             color: "#7aa2f7"
+                        }
+                        Text {
+                            visible: bar.netDevice !== ""
+                            text: (root.isGerman ? "Gerät: " : "Device: ") + bar.netDevice
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: "#565f89"
+                        }
+                        Text {
+                            visible: bar.connType !== ""
+                            text: " " + root.fmtBitrate(bar.netRxKBps) + "    " + root.fmtBitrate(bar.netTxKBps)
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: "#c0caf5"
                         }
                         Text {
                             text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
