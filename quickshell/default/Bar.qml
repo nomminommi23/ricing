@@ -17,6 +17,69 @@ Variants {
     readonly property string shutdownLabel: isGerman ? "Herunterfahren" : "Shutdown"
 
     property bool windowSwitcherOpen: false
+    property bool helpOpen: false
+
+    // Kept in sync with the Hotkeys section of README.md by hand: Hyprland's Lua config binds
+    // everything through one opaque "__lua" dispatcher, so hyprctl binds -j can't recover a
+    // human-readable action for any of them - there's nothing meaningful left to auto-fetch.
+    readonly property var keybindGroups: [
+        {
+            cat: isGerman ? "Apps" : "Apps", items: [
+                { keys: "Mod + Return", en: "Terminal (Kitty)", de: "Terminal (Kitty)" },
+                { keys: "Mod + W", en: "Browser (Zen)", de: "Browser (Zen)" },
+                { keys: "Mod + N", en: "File manager (Dolphin)", de: "Dateimanager (Dolphin)" },
+                { keys: "Mod + Space", en: "App launcher (Rofi)", de: "App-Starter (Rofi)" },
+                { keys: "Mod + Shift + P", en: "Spotify", de: "Spotify" },
+                { keys: "Mod + Shift + C", en: "Discord", de: "Discord" },
+                { keys: "Mod + Shift + S", en: "Steam", de: "Steam" },
+                { keys: "Mod + Shift + T", en: "btop (in terminal)", de: "btop (im Terminal)" },
+                { keys: "Mod + Alt + C", en: "Qalculate", de: "Qalculate" },
+                { keys: "Mod + C", en: "Clipboard history (cliphist + Rofi)", de: "Zwischenablage-Verlauf (cliphist + Rofi)" },
+            ]
+        },
+        {
+            cat: isGerman ? "Bar" : "Bar", items: [
+                { keys: "Mod + Shift + A", en: "Toggle the window switcher", de: "Fenster-Umschalter öffnen/schließen" },
+                { keys: "Mod + Shift + H", en: "Toggle this keybinds panel", de: "Dieses Tastenkombinations-Panel öffnen/schließen" },
+            ]
+        },
+        {
+            cat: isGerman ? "Fenster" : "Windows", items: [
+                { keys: "Mod + Q", en: "Close active window", de: "Aktives Fenster schließen" },
+                { keys: "Mod + Shift + E", en: "Exit Hyprland", de: "Hyprland beenden" },
+                { keys: "Mod + F", en: "Toggle fullscreen", de: "Vollbild umschalten" },
+                { keys: "Mod + V", en: "Toggle floating", de: "Schwebemodus umschalten" },
+                { keys: "Mod + P", en: "Toggle pseudotiling", de: "Pseudo-Tiling umschalten" },
+                { keys: "Mod + ←/→/K/J", en: "Move focus", de: "Fokus bewegen" },
+                { keys: "Mod + Shift + ←/→/↑/↓", en: "Move window", de: "Fenster verschieben" },
+                { keys: "Mod + Ctrl + H/L/K/J", en: "Resize active window", de: "Aktives Fenster skalieren" },
+                { keys: "Mod + LMB drag", en: "Move window", de: "Fenster verschieben" },
+                { keys: "Mod + RMB drag", en: "Resize window", de: "Fenster skalieren" },
+            ]
+        },
+        {
+            cat: isGerman ? "Workspaces" : "Workspaces", items: [
+                { keys: "Mod + 1…9", en: "Switch to workspace 1–9", de: "Zu Workspace 1–9 wechseln" },
+                { keys: "Mod + Shift + 1…9", en: "Move window to workspace 1–9", de: "Fenster zu Workspace 1–9 verschieben" },
+                { keys: "Mod + Scroll", en: "Next/previous workspace", de: "Nächster/vorheriger Workspace" },
+            ]
+        },
+        {
+            cat: isGerman ? "Screenshots" : "Screenshots", items: [
+                { keys: "Print", en: "Region screenshot → clipboard", de: "Bereichs-Screenshot → Zwischenablage" },
+                { keys: "Shift + Print", en: "Region screenshot → file", de: "Bereichs-Screenshot → Datei" },
+            ]
+        },
+        {
+            cat: isGerman ? "Medien / Audio" : "Media / audio", items: [
+                { keys: "XF86AudioRaiseVolume/Lower", en: "Volume up/down", de: "Lautstärke rauf/runter" },
+                { keys: "XF86AudioMute", en: "Mute", de: "Stummschalten" },
+                { keys: "XF86AudioMicMute", en: "Mute mic", de: "Mikro stummschalten" },
+                { keys: "XF86MonBrightnessUp/Down", en: "Brightness up/down", de: "Helligkeit rauf/runter" },
+                { keys: "XF86AudioPlay/Next/Prev", en: "Media playback control", de: "Medienwiedergabe steuern" },
+            ]
+        },
+    ]
 
     function fmtRate(kbps) {
         return kbps >= 1024 ? (kbps / 1024).toFixed(1) + " MB/s" : Math.round(kbps) + " KB/s"
@@ -103,6 +166,17 @@ Variants {
 
                 function toggle(): void {
                     root.windowSwitcherOpen = !root.windowSwitcherOpen
+                }
+            }
+        }
+
+        Loader {
+            active: modelData === Quickshell.screens[0]
+            sourceComponent: IpcHandler {
+                target: "help"
+
+                function toggle(): void {
+                    root.helpOpen = !root.helpOpen
                 }
             }
         }
@@ -1100,6 +1174,32 @@ Variants {
             }
 
             Rectangle {
+                id: helpBtn
+                visible: bar.taskbarMode
+                Layout.preferredWidth: visible ? 32 : 0
+                Layout.preferredHeight: 26
+                radius: 10
+                color: (helpArea.containsMouse || root.helpOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: ""
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 14
+                    color: (helpArea.containsMouse || root.helpOpen) ? "#0f111a" : "#7aa2f7"
+                }
+
+                MouseArea {
+                    id: helpArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onEntered: bar.hovered = "help"
+                    onExited: bar.hovered = ""
+                    onClicked: root.helpOpen = !root.helpOpen
+                }
+            }
+
+            Rectangle {
                 id: clockPill
                 Layout.preferredWidth: 100
                 Layout.preferredHeight: 26
@@ -1440,6 +1540,143 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
                             color: "#565f89"
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyLoader {
+            active: bar.hovered === "help" && !root.helpOpen
+
+            PanelWindow {
+                screen: bar.modelData
+                anchors { top: true; right: true }
+                margins { top: 34; right: bar.width - (rightRow.x + helpBtn.x + helpBtn.width) }
+                implicitWidth: helpHintText.implicitWidth + 24
+                implicitHeight: helpHintText.implicitHeight + 20
+                color: "transparent"
+                WlrLayershell.namespace: "help-hint"
+                WlrLayershell.layer: WlrLayer.Top
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 10
+                    color: "#e61a1b26"
+                    border.width: 1
+                    border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                    Text {
+                        id: helpHintText
+                        anchors.centerIn: parent
+                        text: root.isGerman ? "Zeigt alle Tastenkombinationen" : "Shows all keybinds"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        color: "#c0caf5"
+                    }
+                }
+            }
+        }
+
+        LazyLoader {
+            active: root.helpOpen && Hyprland.focusedMonitor !== null && bar.modelData.name === Hyprland.focusedMonitor.name
+
+            PanelWindow {
+                id: helpWindow
+                screen: bar.modelData
+                // No anchors: wlr-layer-shell centers a surface on the output when none of its
+                // edges are anchored, which is what we want for a cheatsheet-style overlay.
+                implicitWidth: 540
+                implicitHeight: Math.min(helpCol.implicitHeight + 100, bar.modelData.height - 80)
+                color: "transparent"
+                WlrLayershell.namespace: "help-panel"
+                WlrLayershell.layer: WlrLayer.Top
+
+                HyprlandFocusGrab {
+                    windows: [ helpWindow ]
+                    active: true
+                    onCleared: root.helpOpen = false
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 12
+                    color: "#f01a1b26"
+                    border.width: 1
+                    border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.isGerman ? "Tastenkombinationen" : "Keybinds"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 18
+                            font.bold: true
+                            color: "#c0caf5"
+                        }
+
+                        Flickable {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            contentWidth: width
+                            contentHeight: helpCol.implicitHeight
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            ColumnLayout {
+                                id: helpCol
+                                width: parent.width
+                                spacing: 10
+
+                                Repeater {
+                                    model: root.keybindGroups
+
+                                    ColumnLayout {
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        spacing: 3
+
+                                        Text {
+                                            text: modelData.cat
+                                            font.family: "JetBrainsMono Nerd Font"
+                                            font.pixelSize: 15
+                                            font.bold: true
+                                            color: "#1793d1"
+                                        }
+
+                                        Repeater {
+                                            model: modelData.items
+
+                                            RowLayout {
+                                                required property var modelData
+                                                Layout.fillWidth: true
+                                                spacing: 10
+
+                                                Text {
+                                                    text: modelData.keys
+                                                    font.family: "JetBrainsMono Nerd Font"
+                                                    font.pixelSize: 14
+                                                    color: "#7aa2f7"
+                                                    Layout.preferredWidth: 225
+                                                    wrapMode: Text.WrapAnywhere
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: root.isGerman ? modelData.de : modelData.en
+                                                    font.family: "JetBrainsMono Nerd Font"
+                                                    font.pixelSize: 14
+                                                    color: "#c0caf5"
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

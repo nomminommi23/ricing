@@ -328,6 +328,8 @@ hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "T", hl.dsp.exec_cmd("kitty -e b
 
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "A", hl.dsp.exec_cmd("quickshell -c default ipc call windowswitcher toggle"))
 
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "H", hl.dsp.exec_cmd("quickshell -c default ipc call help toggle"))
+
 -- ----------------------------------------------------------
 
 -- Keybinds: Window control
