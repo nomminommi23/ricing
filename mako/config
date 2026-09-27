@@ -1,6 +1,6 @@
-# Layout / behavior. Colors come from the active aether palette, not
-# hardcoded here - see aether/custom/mako/colors.ini (template, edit
-# that, not this include) and mako/colors.ini (generated output).
+# Layout / behavior. Colors come from the active theme palette, not hardcoded
+# here - see theme/templates/mako/colors.ini (template, edit that, not this
+# include) and mako/colors.ini (generated output, see theme/render.py).
 include=~/.config/mako/colors.ini
 
 font=JetBrainsMono Nerd Font 11

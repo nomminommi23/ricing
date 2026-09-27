@@ -1,4 +1,0 @@
-{
-    "template": "colors.css",
-    "destination": "~/.config/waybar/aether-colors.css"
-}

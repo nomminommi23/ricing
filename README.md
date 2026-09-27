@@ -14,8 +14,8 @@ My personal dotfiles for a [Hyprland](https://hyprland.org/) desktop on Arch Lin
 | Launcher | Rofi |
 | Terminal | Kitty |
 | Cursor | Custom Arch-logo cursor set (pointer, text, resize, wait spinner, …) in the rice palette — artwork in [`shapes.py`](hypr/cursor/shapes.py), [`build.py`](hypr/cursor/build.py) installs a Hyprcursor and an XCursor theme to `~/.local/share/icons/ArchLogo` |
-| Notifications | [mako](mako/) — themed via aether, same as the rest |
-| Theming | [aether](aether/) — palette-driven theme generator |
+| Notifications | [mako](mako/) — themed from the palette, same as the rest |
+| Theming | [`theme/`](theme/) — homegrown palette-driven theme generator (`render.py`), controlled from the Quickshell desktop widget or the CLI |
 | Qt/GTK theming | qt5ct, qt6ct, nwg-look |
 | File manager | Dolphin (`kdeglobals`, `dolphinrc`) |
 
@@ -40,6 +40,8 @@ All the stats are pulled by small shell scripts in `quickshell/default/scripts/`
 
 Hyprland itself is configured via [`hypr/hyprland.lua`](hypr/hyprland.lua) (Hyprland's Lua config API) — that's the active config; `hyprland.conf` is kept around for reference but is no longer loaded. One consequence: `hyprctl dispatch` (and anything sending it a raw dispatch string, like this bar's workspace/window-switcher clicks) needs the new `hl.dsp.*` Lua-expression syntax instead of the classic one, e.g. `hl.dsp.focus({workspace = 1})` rather than `workspace 1`.
 
+There's also a `no_fullscreen_kitty` window rule in there working around a real Hyprland quirk: newly opened kitty windows were coming up in genuine fullscreen (`hasfullscreen: true`, not just a full-size tile) regardless of workspace, needing `fullscreen()` dispatched twice to clear. Root cause not found (no rule/config was causing it); `fullscreen_state = "0 0"` on kitty forces both the internal and client-requested state off on open. Plain `fullscreen = false` is a no-op — that's just the default, it doesn't override anything.
+
 ## Cursor
 
 The mouse cursor is a custom theme, `ArchLogo`, with every shape redrawn in the rice style instead of only the arrow:
@@ -50,13 +52,20 @@ The mouse cursor is a custom theme, `ArchLogo`, with every shape redrawn in the 
 
 The artwork is drawn procedurally in [`hypr/cursor/shapes.py`](hypr/cursor/shapes.py); [`hypr/cursor/build.py`](hypr/cursor/build.py) renders it (needs `rsvg-convert` and `hyprcursor-util`) into a Hyprcursor theme for Hyprland and an XCursor theme for GTK/Qt/XWayland apps, both installed to `~/.local/share/icons/ArchLogo`. Adwaita is only used as the shape/alias list and fallback. It also writes `~/.local/share/icons/default/index.theme` (`Inherits=ArchLogo`), Xcursor's fallback theme, so apps that never see `XCURSOR_THEME` (Steam and Proton games started before the env was set) get the cursor too — restart Steam once after installing. After editing `shapes.py`, run `python3 hypr/cursor/build.py` and `hyprctl setcursor ArchLogo 24`. `hyprland.lua` sets the theme via `XCURSOR_THEME` / `HYPRCURSOR_THEME` and gsettings.
 
-## Theming (aether)
+## Theming
 
-The color palette lives in [`aether/`](aether/) and is the single source of truth — [`aether/theme/colors.toml`](aether/theme/colors.toml) defines the palette, and aether renders it out into per-app configs (Hyprland, Kitty, Rofi, Waybar-era CSS, btop, Zed, etc.), most of which get `@import`ed or sourced by that app's real config rather than edited directly. The bar's own colors in `Bar.qml` are hand-matched to this palette rather than generated, since Quickshell reads QML, not CSS.
+Theming used to go through a third-party app called aether; it's gone now (it didn't work reliably), replaced with a small homegrown system in [`theme/`](theme/):
 
-mako's per-urgency border colors (normal = accent, low = muted, critical = red) work the same way as Hyprland's border colors: a template at [`aether/custom/mako/colors.ini`](aether/custom/mako/colors.ini) gets rendered by aether into `mako/colors.ini`, which the real `mako/config` pulls in via `include=`. Edit the template, not the generated file — it gets overwritten on the next theme switch.
+- [`theme/colors.toml`](theme/colors.toml) is the single source of truth for the palette (accent, cursor, foreground/background, 16 ANSI colors)
+- [`theme/templates/<app>/`](theme/templates/) holds one `{config.json, template}` pair per themed app (Hyprland, Kitty, Rofi, mako). `config.json` names the destination file; the template uses `{key}` placeholders (`{color4}`, `{background}`, `{accent}`, …), `{key.strip}` for the hex without `#`, or `{key.rgba:ALPHA}` for a `rgba(r, g, b, ALPHA)` string
+- [`theme/render.py`](theme/render.py) renders every template to its destination and reloads the affected apps (`hyprctl reload`, `makoctl reload`, kitty via `SIGUSR1`). Run it after editing a template by hand, or use `--set KEY '#rrggbb'` to change one color from a terminal, `--get KEY` / `--dump` to read the palette back out
+- [`theme/wallpaper.py`](theme/wallpaper.py) swaps the wallpaper: `apply <path>` archives the current one (deduped by hash) into `~/.local/share/quickshell/wallpapers/` and copies the new one to [`hypr/wallpaper.png`](hypr/wallpaper.png) (loaded via `swaybg` in `hyprland.lua`), `pick` does the same via a native file picker, `list` feeds the widget's gallery of past wallpapers
 
-It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around. The wallpaper itself is tracked at [`hypr/wallpaper.png`](hypr/wallpaper.png) and set via `swaybg` in `hyprland.lua`.
+mako's per-urgency border colors (normal = accent, low = muted, critical = red) work the same way as Hyprland's border colors: edit the template at `theme/templates/mako/colors.ini`, not `mako/colors.ini` itself — that gets overwritten on the next render.
+
+Day to day, neither script needs to be run by hand — the **theme widget**, a small standalone Quickshell window pinned to the top-left corner of the main monitor (independent of the bar), has two buttons: a picture icon opens the wallpaper gallery/picker, a paintbrush icon opens a menu to pick which color role to change and then a palette (plus a hex field) to change it to. Both call straight into the scripts above.
+
+It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around.
 
 ## Hotkeys
 
@@ -126,17 +135,17 @@ It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around
 
 ## Requirements
 
-Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup).
+Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`.
 
 ## Layout
 
 ```
 hypr/        Hyprland config (hyprland.lua is active, .conf kept for reference) + wallpaper.png + cursor/ (cursor theme source)
-quickshell/  The bar (Bar.qml + helper QML components + scripts/)
+quickshell/  The bar (Bar.qml + helper QML components + scripts/) + ThemeWidget.qml (theming widget)
 rofi/        Launcher config + theme
 kitty/       Terminal config + theme
-mako/        Notification daemon config (colors.ini generated by aether)
-aether/      Palette source + generated per-app theme files
+mako/        Notification daemon config (colors.ini generated by theme/render.py)
+theme/       Palette source (colors.toml), per-app templates, render.py + wallpaper.py
 btop/        System monitor config
 qt5ct/ qt6ct/ nwg-look/ gtk-3.0/   Qt/GTK theming
 ```

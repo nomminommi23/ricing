@@ -133,12 +133,12 @@ hl.config({
 
 -- ----------------------------------------------------------
 
--- Border-Farben von aether (wird bei jedem Theme-Wechsel neu generiert)
--- Liest die von aether generierte Datei direkt bei jedem Config-Reload,
--- damit ein Theme-Wechsel (der die Datei neu schreibt + reload triggert)
--- weiterhin automatisch die Rahmenfarben aktualisiert.
-local function read_aether_theme()
-    local path = (os.getenv("HOME") or "") .. "/.config/hypr/aether-theme.conf"
+-- Border-Farben aus theme/colors.toml (wird bei jedem Theme-Wechsel neu generiert, siehe theme/render.py)
+-- Liest die generierte Datei direkt bei jedem Config-Reload, damit ein
+-- Theme-Wechsel (der die Datei neu schreibt + reload triggert) weiterhin
+-- automatisch die Rahmenfarben aktualisiert.
+local function read_theme_conf()
+    local path = (os.getenv("HOME") or "") .. "/.config/hypr/theme.conf"
     local f = io.open(path, "r")
     if not f then return nil end
     local content = f:read("*a")
@@ -152,7 +152,7 @@ local function read_aether_theme()
     return { active1 = active1, active2 = active2, inactive = inactive }
 end
 
-local aether = read_aether_theme()
+local theme = read_theme_conf()
 
 hl.config({
     general = {
@@ -162,18 +162,18 @@ hl.config({
         resize_on_border = true,
         allow_tearing = false,
         layout = "dwindle",
-        col = aether and {
-            active_border = { colors = { aether.active1, aether.active2 }, angle = 45 },
-            inactive_border = aether.inactive,
+        col = theme and {
+            active_border = { colors = { theme.active1, theme.active2 }, angle = 45 },
+            inactive_border = theme.inactive,
         } or nil,
     },
 })
 
-if aether then
+if theme then
     hl.config({
         group = {
             col = {
-                border_active = { colors = { aether.active1, aether.active2 }, angle = 45 },
+                border_active = { colors = { theme.active1, theme.active2 }, angle = 45 },
             },
         },
     })
@@ -476,6 +476,19 @@ hl.window_rule({
         class = "^(Alacritty|kitty|foot)$",
     },
     scroll_touchpad = 1.5,
+})
+
+-- Workaround: every new kitty window has been coming up in real Hyprland
+-- fullscreen (hasfullscreen=true, needs fullscreen() dispatched twice to
+-- clear) regardless of workspace - root cause not found. "fullscreen = false"
+-- is a no-op (that's just the default, it doesn't force anything); this
+-- overrides both the internal and client-requested fullscreen state instead.
+hl.window_rule({
+    name  = "no_fullscreen_kitty",
+    match = {
+        class = "^(kitty)$",
+    },
+    fullscreen_state = "0 0",
 })
 
 hl.window_rule({

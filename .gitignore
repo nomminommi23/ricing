@@ -8,7 +8,7 @@
 !/kitty
 !/mako
 !/quickshell
-!/aether
+!/theme
 !/btop
 !/qt5ct
 !/qt6ct
@@ -19,9 +19,6 @@
 !/kdeglobals
 !/.gitignore
 !/README.md
-
-# Runtime/lock artifacts
-aether/aether.sock.pid
 
 # Manual pre-git backups — superseded by git history
 *.bak-*

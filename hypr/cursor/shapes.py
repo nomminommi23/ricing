@@ -6,7 +6,7 @@ name to (hotspot in that box, [svg frames]); more than one frame = animated.
 """
 
 OUT = "#0b1a26"    # outline
-BLUE = "#1793d1"   # accent (aether color for the rice)
+BLUE = "#1793d1"   # accent color for the rice (theme/colors.toml)
 LIGHT = "#e6f1f8"
 TRACK = "#2a4a63"
 RED = "#e5546b"
