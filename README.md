@@ -213,6 +213,20 @@ sudo dnf install hyprland xdg-desktop-portal-hyprland hyprcursor kitty rofi mako
 
 Optional apps this config's hotkeys point at — swap the `hl.bind` targets in `hyprland.lua` for whatever you actually use instead of installing these: `zen-browser` (`Mod+W`, AUR `zen-browser-bin` on Arch; also on Flatpak as `io.github.zen_browser.zen`), `discord` (`Mod+Shift+C`, in most repos, incl. Arch `extra`; also Flatpak `com.discordapp.Discord`), `spotify` (`Mod+Shift+P`, AUR on Arch; also Flatpak `com.spotify.Client` or a Snap), `steam` (`Mod+Shift+S`, `multilib/steam` on Arch, `steam` on apt/dnf with the right repo enabled), `btop` (`Mod+Shift+T`, in most repos), `qalculate-gtk` (`Mod+Alt+C`, in most repos).
 
+## Hardware
+
+This config's software requirements (above) run on anything; a few specific settings inside it, though, are hardcoded to *my* hardware and will need editing — not just installing a package — to work on different hardware:
+
+| Component | Mine | Where it's hardcoded | What happens on different hardware |
+|---|---|---|---|
+| CPU | AMD Ryzen 5 5600X | `quickshell/default/scripts/stats.sh` reads the `k10temp-pci-00c3` sensor chip by name for CPU temperature | On an Intel CPU (or any chip lm_sensors doesn't expose as `k10temp`) that lookup fails and the CPU pill's temperature/`Mod`-click toggle just shows `NA` — everything else in the script (usage %, per-core, load average) is chip-agnostic and keeps working |
+| GPU | NVIDIA GeForce RTX 3060 | Same script shells out to `nvidia-smi` for the GPU pill | No `nvidia-smi` (AMD/Intel GPU, or no dGPU) → the GPU pill hides itself entirely (`gpuAvailable` goes false); it doesn't error, it just won't show |
+| Monitors | 27" 2560×1440@144Hz (`DP-1`, desc `HKC OVERSEAS LIMITED 27E6QC`) + 23" 1680×1050@60Hz (`HDMI-A-1`, desc `LG Electronics L226W`) | `hl.monitor({...})` blocks and every `hl.workspace_rule({...})` in `hyprland.lua` match monitors by their exact EDID `desc:` string (find yours with `hyprctl monitors`) | With different monitors (or even the same models in a different plug order) these rules simply won't match anything — Hyprland falls back to its own defaults, so resolution/refresh-rate/position and the fixed per-monitor workspace assignments (1–4/9 on the main monitor, 5–8 on the second) silently stop applying. Update the `desc:` strings and positions to match `hyprctl monitors` output on the new setup |
+| Keyboard layout | German (`de`) | `kb_layout = "de"` in `hyprland.lua` | Not a crash, just the wrong layout — change it to your own (`kb_layout = "us"`, etc.) |
+| Motherboard / RAM / storage | ASUS ROG STRIX B550-F, 32 GB, NVMe SSDs (+ a USB stick) | Nothing — the disk pill enumerates real mounted filesystems and their device names live, nothing about specific drives is hardcoded | No changes needed regardless of storage layout |
+
+None of this stops the config from *loading* on other hardware — Hyprland just silently falls back to sane defaults for anything that doesn't match, and the bar degrades gracefully (missing pills, `NA` values) rather than erroring. But if a monitor is misplaced/wrong-resolution, workspaces land on the wrong screen, or the GPU/CPU pill acts oddly, this table is where to look first before assuming something's broken.
+
 ## Layout
 
 ```
