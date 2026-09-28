@@ -4,6 +4,21 @@ My personal dotfiles for a [Hyprland](https://hyprland.org/) desktop on Arch Lin
 
 **Heads up:** the majority of this configuration — especially the entire Quickshell bar — was built with [Claude Code](https://claude.com/claude-code). I described what I wanted, reviewed the results, and iterated from there rather than hand-writing most of the QML/config myself. If you're browsing this repo for ideas, keep that in mind: it's an AI-assisted rice, not a from-scratch hand-tuned one.
 
+## Installing
+
+The repo is private, so grab `install.sh` with an authenticated clone rather than a raw-file `curl` (which needs a token for a private repo):
+
+```bash
+git clone https://github.com/nomminommi23/ricing.git /tmp/ricing-installer
+bash /tmp/ricing-installer/install.sh          # clones the repo again and drops its files into ~/.config
+bash /tmp/ricing-installer/install.sh --deps   # same, plus installs dependencies via pacman (Arch only)
+rm -rf /tmp/ricing-installer                   # was only needed to get install.sh itself
+```
+
+[`install.sh`](install.sh) never runs a plain `git clone` straight into `~/.config` — that directory already has other apps' configs in it (and `git clone` refuses a non-empty target anyway). Instead it clones into a temp dir first, then moves only the paths this repo actually tracks into `~/.config` one by one; anything already there under the same name gets backed up to `~/.config-backup-<timestamp>/` rather than silently overwritten, and everything else in `~/.config` is left untouched. Re-running it later (e.g. on a machine that already has the rice) detects the existing checkout and just does a `git pull` instead. Pass `--dry-run` to see what it would do without changing anything, or `--repo=<url>` to install from a fork.
+
+`--deps` only knows `pacman` — see [Requirements](#requirements) below for `apt`/`dnf` package lists to install by hand on other distros. Either way, log out and back into Hyprland/SDDM (or reboot) afterward.
+
 ## Stack
 
 | Piece | Tool |
@@ -136,6 +151,70 @@ It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around
 ## Requirements
 
 Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`.
+
+This is an Arch + Hyprland rice through and through, so the list below is Arch-authoritative — everything in the pacman column is a plain `extra`/`multilib` package on current Arch, nothing needs an AUR helper. `apt`/`dnf` columns are best-effort: Hyprland and its ecosystem (Hyprland itself, `quickshell`, `hyprcursor`) move fast and generally aren't in Debian/Ubuntu's or Fedora's stock repos, so those need a third-party repo (Fedora: the [`solopasha/hyprland` COPR](https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/) covers most of it) or building from source — a blank cell means "no known repo package, check the project's own install docs". Snap has essentially no coverage here (this is all system/Wayland-level tooling, not the kind of app snap packages); where an optional app happens to have one, it's noted below the table instead.
+
+| Program | What it's for | pacman | apt | dnf |
+|---|---|---|---|---|
+| `hyprland` | Compositor | `hyprland` | — (COPR/build) | `hyprland` (COPR) |
+| `sddm` | Login screen | `sddm` | `sddm` | `sddm` |
+| `xdg-desktop-portal-hyprland` | Screen share / portals | `xdg-desktop-portal-hyprland` | — | `xdg-desktop-portal-hyprland` (COPR) |
+| `quickshell` | The bar + widgets | `quickshell` | — (build) | — (build) |
+| `kitty` | Terminal | `kitty` | `kitty` | `kitty` |
+| `rofi` | Launcher | `rofi` | `rofi` | `rofi` |
+| `mako` | Notifications | `mako` | `mako-notifier` | `mako` |
+| `dolphin` | File manager | `dolphin` | `dolphin` | `dolphin` |
+| `swaybg` | Wallpaper | `swaybg` | `swaybg` | `swaybg` |
+| `hyprcursor` (`hyprcursor-util`) | Cursor theme build | `hyprcursor` | — | `hyprcursor` (COPR) |
+| `librsvg` (`rsvg-convert`) | Cursor theme build | `librsvg` | `librsvg2-bin` | `librsvg2-tools` |
+| `grim` + `slurp` | Screenshots | `grim slurp` | `grim slurp` | `grim slurp` |
+| `wl-clipboard` | Clipboard (copy/paste) | `wl-clipboard` | `wl-clipboard` | `wl-clipboard` |
+| `cliphist` | Clipboard history | `cliphist` | — | — (build) |
+| `zenity` | Native file picker (theme widget) | `zenity` | `zenity` | `zenity` |
+| NetworkManager (`nmcli`) | Network widget/pill | `networkmanager` | `network-manager` | `NetworkManager` |
+| `network-manager-applet` (`nm-applet`, `nm-connection-editor`) | Network tray/settings | `network-manager-applet` | `network-manager-gnome` | `network-manager-applet` |
+| WirePlumber (`wpctl`) | Volume pill | `wireplumber` | `wireplumber` | `wireplumber` |
+| `pavucontrol` | Volume mixer (opened by the volume pill) | `pavucontrol` | `pavucontrol` | `pavucontrol` |
+| `blueman` (`blueman-manager`) | Bluetooth manager (window rule) | `blueman` | `blueman` | `blueman` |
+| `brightnessctl` | Brightness keys | `brightnessctl` | `brightnessctl` | `brightnessctl` |
+| `playerctl` | Media keys | `playerctl` | `playerctl` | `playerctl` |
+| `lm_sensors` (`sensors`) | CPU temperature | `lm_sensors` | `lm-sensors` | `lm_sensors` |
+| `nvidia-utils` (`nvidia-smi`) | GPU stats — optional, no-ops gracefully if absent | `nvidia-utils` | `nvidia-utils-*` | `xorg-x11-drv-nvidia-cuda` |
+| `curl` | Network widget's public-IP lookup | `curl` | `curl` | `curl` |
+| `python3` | Bar scripts, cursor build, theme system | `python` | `python3` | `python3` |
+| `qt5ct` / `qt6ct` / `nwg-look` | Qt/GTK theming | `qt5ct qt6ct nwg-look` | `qt5ct qt6ct` (nwg-look: build) | `qt5ct qt6ct` (nwg-look: build) |
+| `materia-gtk-theme` | GTK theme | `materia-gtk-theme` | `materia-gtk-theme` | — (build) |
+| `papirus-icon-theme` | Icon theme | `papirus-icon-theme` | `papirus-icon-theme` | `papirus-icon-theme` |
+| `ttf-jetbrains-mono-nerd` | Bar/UI font | `ttf-jetbrains-mono-nerd` | — (manual install from [Nerd Fonts](https://www.nerdfonts.com/)) | — (manual install) |
+
+```bash
+# Arch (pacman - every package below is in the extra/multilib repos already
+# enabled by default, no AUR helper needed)
+sudo pacman -S --needed hyprland sddm xdg-desktop-portal-hyprland quickshell kitty rofi \
+    mako dolphin swaybg hyprcursor librsvg grim slurp wl-clipboard cliphist zenity \
+    networkmanager network-manager-applet wireplumber pavucontrol blueman brightnessctl \
+    playerctl lm_sensors nvidia-utils curl python qt5ct qt6ct nwg-look materia-gtk-theme \
+    papirus-icon-theme ttf-jetbrains-mono-nerd
+
+# Debian/Ubuntu (apt) - covers everything except Hyprland/quickshell/hyprcursor/
+# cliphist, which need a third-party repo or a source build on this base
+sudo apt install kitty rofi mako-notifier dolphin swaybg librsvg2-bin grim slurp \
+    wl-clipboard zenity network-manager network-manager-gnome wireplumber pavucontrol \
+    blueman brightnessctl playerctl lm-sensors nvidia-utils-535 curl python3 \
+    qt5ct qt6ct materia-gtk-theme papirus-icon-theme sddm
+
+# Fedora (dnf) - add the solopasha/hyprland COPR first for Hyprland/hyprcursor/
+# xdg-desktop-portal-hyprland; quickshell/cliphist/nwg-look/materia-gtk-theme still need a build
+sudo dnf copr enable solopasha/hyprland
+sudo dnf install hyprland xdg-desktop-portal-hyprland hyprcursor kitty rofi mako dolphin \
+    swaybg librsvg2-tools grim slurp wl-clipboard zenity NetworkManager \
+    network-manager-applet wireplumber pavucontrol blueman brightnessctl playerctl \
+    lm_sensors xorg-x11-drv-nvidia-cuda curl python3 qt5ct qt6ct papirus-icon-theme sddm
+```
+
+**Anything not covered by a system package manager** (`quickshell`/`hyprcursor`/`cliphist` off-Arch, `nwg-look`/`materia-gtk-theme` off-Arch on Fedora): build from source per the project's own README, or check if the distro has an unofficial binary repo for it (Fedora COPR, a Debian PPA-equivalent, `chaotic-aur`-style prebuilt repos). Flatpak/Nix are worth a look for the optional apps below, but the bar/theming stack itself is system-level Wayland tooling that neither packages well.
+
+Optional apps this config's hotkeys point at — swap the `hl.bind` targets in `hyprland.lua` for whatever you actually use instead of installing these: `zen-browser` (`Mod+W`, AUR `zen-browser-bin` on Arch; also on Flatpak as `io.github.zen_browser.zen`), `discord` (`Mod+Shift+C`, in most repos, incl. Arch `extra`; also Flatpak `com.discordapp.Discord`), `spotify` (`Mod+Shift+P`, AUR on Arch; also Flatpak `com.spotify.Client` or a Snap), `steam` (`Mod+Shift+S`, `multilib/steam` on Arch, `steam` on apt/dnf with the right repo enabled), `btop` (`Mod+Shift+T`, in most repos), `qalculate-gtk` (`Mod+Alt+C`, in most repos).
 
 ## Layout
 

@@ -19,6 +19,7 @@
 !/kdeglobals
 !/.gitignore
 !/README.md
+!/install.sh
 
 # Manual pre-git backups — superseded by git history
 *.bak-*
