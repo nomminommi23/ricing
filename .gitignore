@@ -25,3 +25,6 @@
 *.bak-*
 /hypr/backups/
 
+# Python bytecode cache (theme/presets.py imports theme/render.py as a module)
+__pycache__/
+

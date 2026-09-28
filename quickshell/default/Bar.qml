@@ -19,6 +19,30 @@ Variants {
     property bool windowSwitcherOpen: false
     property bool helpOpen: false
 
+    // Bar/pill/popup opacity from theme/colors.toml - defaults match what was hardcoded
+    // here before theming picked these up, so nothing changes until a fetch lands.
+    property real barOpacity: 0.18
+    property real pillOpacity: 0.85
+    property real popupOpacity: 0.90
+
+    // Bar colors from theme/colors.toml - defaults match what was hardcoded as literal hex
+    // strings throughout this file before theming picked them up (see README's Theming
+    // section for exactly which role paints what). Keyed exactly like colors.toml so the
+    // fetch below can copy straight across.
+    property var palette: ({
+        accent: "#1793d1", foreground: "#c0caf5",
+        color1: "#f7768e", color2: "#a6e3a1", color3: "#f9e2af",
+        color5: "#cba6f7", color6: "#89dceb", color8: "#565f89", color12: "#7aa2f7",
+        bar_color: "#12131b", pill_color: "#1a1b26", popup_color: "#1a1b26",
+    })
+
+    // "#rrggbb" + 0-1 alpha -> "#aarrggbb", so bar/pill/popup backgrounds can have both an
+    // editable color *and* an editable opacity instead of a fixed base tint.
+    function argb(hex, alpha) {
+        var a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, "0")
+        return "#" + a + hex.slice(1)
+    }
+
     // Kept in sync with the Hotkeys section of README.md by hand: Hyprland's Lua config binds
     // everything through one opaque "__lua" dispatcher, so hyprctl binds -j can't recover a
     // human-readable action for any of them - there's nothing meaningful left to auto-fetch.
@@ -181,6 +205,38 @@ Variants {
             }
         }
 
+        Loader {
+            active: modelData === Quickshell.screens[0]
+            sourceComponent: Item {
+                Process {
+                    id: themeDump
+                    command: ["python3", "/home/nico/.config/theme/render.py", "--dump"]
+                    stdout: StdioCollector { id: themeDumpCollector }
+                    onExited: {
+                        try {
+                            var c = JSON.parse(themeDumpCollector.text)
+                            if ("bar_opacity" in c) root.barOpacity = c.bar_opacity
+                            if ("pill_opacity" in c) root.pillOpacity = c.pill_opacity
+                            if ("popup_opacity" in c) root.popupOpacity = c.popup_opacity
+                            var p = {}
+                            for (var key in root.palette) p[key] = (key in c) ? c[key] : root.palette[key]
+                            root.palette = p
+                        } catch (e) {}
+                    }
+                }
+
+                IpcHandler {
+                    target: "theme"
+
+                    function changed(): void {
+                        themeDump.running = true
+                    }
+                }
+
+                Timer { interval: 300; running: true; repeat: false; onTriggered: themeDump.running = true }
+            }
+        }
+
         property string hovered: ""
         property bool menuOpen: false
         property bool calendarOpen: false
@@ -298,14 +354,14 @@ Variants {
             Rectangle {
                 anchors.fill: parent
                 radius: 10
-                color: (bellArea.containsMouse || bar.notifOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: (bellArea.containsMouse || bar.notifOpen) ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Text {
                     anchors.centerIn: parent
                     text: bar.notifList.length > 0 ? "\uf0f3" : "\uf0a2"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 14
-                    color: (bellArea.containsMouse || bar.notifOpen) ? "#0f111a" : (bar.notifList.length > 0 ? "#1793d1" : "#565f89")
+                    color: (bellArea.containsMouse || bar.notifOpen) ? "#0f111a" : (bar.notifList.length > 0 ? root.palette.accent : root.palette.color8)
                 }
 
                 Rectangle {
@@ -314,7 +370,7 @@ Variants {
                     width: Math.max(14, badgeText.implicitWidth + 6)
                     height: 14
                     radius: 7
-                    color: "#f7768e"
+                    color: root.palette.color1
                     Text {
                         id: badgeText
                         anchors.centerIn: parent
@@ -461,13 +517,13 @@ Variants {
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.071, 0.075, 0.106, 0.18)
+            color: root.argb(root.palette.bar_color, root.barOpacity)
         }
 
         Rectangle {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             height: 1
-            color: Qt.rgba(0.090, 0.576, 0.820, 0.45)
+            color: root.argb(root.palette.accent, 0.45)
         }
 
         // ================= LEFT =================
@@ -480,7 +536,7 @@ Variants {
                 Layout.preferredWidth: logoText.implicitWidth + 28
                 Layout.preferredHeight: 26
                 radius: 10
-                color: Qt.rgba(0.090, 0.576, 0.820, 0.12)
+                color: root.argb(root.palette.accent, 0.12)
 
                 Text {
                     id: logoText
@@ -488,7 +544,7 @@ Variants {
                     text: ""
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 18
-                    color: "#1793d1"
+                    color: root.palette.accent
                 }
 
                 MouseArea {
@@ -502,7 +558,7 @@ Variants {
                 Layout.preferredWidth: visible ? wsRow.implicitWidth + 8 : 0
                 Layout.preferredHeight: 26
                 radius: 10
-                color: Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: root.argb(root.palette.pill_color, root.pillOpacity)
 
                 RowLayout {
                     id: wsRow
@@ -526,7 +582,7 @@ Variants {
                             Layout.preferredWidth: 22
                             Layout.preferredHeight: 20
                             radius: 8
-                            color: active ? "#1793d1" : (wsArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.22) : "transparent")
+                            color: active ? root.palette.accent : (wsArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.22) : "transparent")
 
                             Text {
                                 anchors.centerIn: parent
@@ -540,7 +596,7 @@ Variants {
                                 }
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.pixelSize: 13
-                                color: wsBtn.active ? "#0f111a" : "#565f89"
+                                color: wsBtn.active ? "#0f111a" : root.palette.color8
                             }
 
                             MouseArea {
@@ -594,21 +650,21 @@ Variants {
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
                     font.bold: centerContainer.showingMedia
-                    color: "#c0caf5"
+                    color: root.palette.foreground
                 }
                 Text {
                     visible: centerContainer.artistText !== ""
                     text: "—"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
-                    color: "#1793d1"
+                    color: root.palette.accent
                 }
                 Text {
                     visible: centerContainer.artistText !== ""
                     text: centerContainer.artistText
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
-                    color: "#7aa2f7"
+                    color: root.palette.color12
                 }
             }
 
@@ -689,7 +745,7 @@ Variants {
                 text: root.isGerman ? "Keine Fenster geöffnet" : "No open windows"
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
-                color: "#565f89"
+                color: root.palette.color8
             }
 
             Repeater {
@@ -728,7 +784,7 @@ Variants {
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 26
                     radius: 8
-                    color: taskBtn.isActive ? "#1793d1" : (taskArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.22) : Qt.rgba(0.102, 0.106, 0.149, 0.85))
+                    color: taskBtn.isActive ? root.palette.accent : (taskArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.22) : root.argb(root.palette.pill_color, root.pillOpacity))
 
                     Image {
                         visible: taskBtn.iconSource !== ""
@@ -746,7 +802,7 @@ Variants {
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         font.bold: true
-                        color: taskBtn.isActive ? "#0f111a" : "#c0caf5"
+                        color: taskBtn.isActive ? "#0f111a" : root.palette.foreground
                     }
 
                     // Multi-window indicator
@@ -759,7 +815,7 @@ Variants {
                         width: 14
                         height: 14
                         radius: 7
-                        color: "#7aa2f7"
+                        color: root.palette.color12
                         border.width: 1
                         border.color: Qt.rgba(0.102, 0.106, 0.149, 1)
 
@@ -810,7 +866,7 @@ Variants {
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 8
-                                color: "#e61a1b26"
+                                color: root.argb(root.palette.popup_color, root.popupOpacity)
                                 border.width: 1
                                 border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -839,7 +895,7 @@ Variants {
                                             Layout.fillWidth: true
                                             implicitHeight: 24
                                             radius: 6
-                                            color: groupRowArea.containsMouse ? "#1793d1" : "transparent"
+                                            color: groupRowArea.containsMouse ? root.palette.accent : "transparent"
 
                                             Text {
                                                 anchors.fill: parent
@@ -850,7 +906,7 @@ Variants {
                                                 text: taskGroupRow.modelData.title
                                                 font.family: "JetBrainsMono Nerd Font"
                                                 font.pixelSize: 12
-                                                color: groupRowArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                                color: groupRowArea.containsMouse ? "#0f111a" : root.palette.foreground
                                             }
 
                                             MouseArea {
@@ -886,7 +942,7 @@ Variants {
                 Layout.preferredWidth: visible ? trayRow.implicitWidth + 16 : 0
                 Layout.preferredHeight: 26
                 radius: 10
-                color: Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: root.argb(root.palette.pill_color, root.pillOpacity)
 
                 RowLayout {
                     id: trayRow
@@ -932,7 +988,7 @@ Variants {
                 Layout.preferredWidth: cpuRow.implicitWidth + 14
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "cpu" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "cpu" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Row {
                     id: cpuRow
@@ -942,6 +998,8 @@ Variants {
                         text: ""
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
+                        // Deliberately hardcoded, not theme-bound: sharing color12 with the
+                        // help icon/detail text meant recoloring one recolored the other.
                         color: bar.hovered === "cpu" ? "#0f111a" : (bar.showCpuTemp ? (bar.tempCritical ? "#f7768e" : "#f9e2af") : "#7aa2f7")
                     }
                     Text {
@@ -950,7 +1008,7 @@ Variants {
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
                         horizontalAlignment: Text.AlignRight
-                        color: bar.hovered === "cpu" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "cpu" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -969,7 +1027,7 @@ Variants {
                 Layout.preferredWidth: memRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "mem" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "mem" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Row {
                     id: memRow
@@ -979,7 +1037,7 @@ Variants {
                         text: ""
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "mem" ? "#0f111a" : "#89dceb"
+                        color: bar.hovered === "mem" ? "#0f111a" : root.palette.color6
                     }
                     Text {
                         text: bar.memPct + "%"
@@ -987,7 +1045,7 @@ Variants {
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
                         horizontalAlignment: Text.AlignRight
-                        color: bar.hovered === "mem" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "mem" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -1005,7 +1063,7 @@ Variants {
                 Layout.preferredWidth: diskRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "disk" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "disk" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Row {
                     id: diskRow
@@ -1015,7 +1073,7 @@ Variants {
                         text: ""
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "disk" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "disk" ? "#0f111a" : root.palette.foreground
                     }
                     Text {
                         text: bar.currentDisk.pct + "%"
@@ -1023,7 +1081,7 @@ Variants {
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
                         horizontalAlignment: Text.AlignRight
-                        color: bar.hovered === "disk" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "disk" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -1042,7 +1100,7 @@ Variants {
                 Layout.preferredWidth: visible ? gpuRow.implicitWidth + 14 : 0
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "gpu" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "gpu" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Row {
                     id: gpuRow
@@ -1052,7 +1110,7 @@ Variants {
                         text: "󰢮"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "gpu" ? "#0f111a" : (bar.showGpuTemp ? "#f9e2af" : "#a6e3a1")
+                        color: bar.hovered === "gpu" ? "#0f111a" : (bar.showGpuTemp ? root.palette.color3 : root.palette.color2)
                     }
                     Text {
                         text: bar.showGpuTemp ? (bar.gpuTemp + "°C") : (bar.gpuUtil + "%")
@@ -1060,7 +1118,7 @@ Variants {
                         font.pixelSize: 13
                         width: valueFont.advanceWidth("100%")
                         horizontalAlignment: Text.AlignRight
-                        color: bar.hovered === "gpu" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "gpu" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -1079,7 +1137,7 @@ Variants {
                 Layout.preferredWidth: volRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "vol" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "vol" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Row {
                     id: volRow
@@ -1089,13 +1147,13 @@ Variants {
                         text: bar.volumeMuted ? "" : ""
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "vol" ? "#0f111a" : (bar.volumeMuted ? "#565f89" : "#cba6f7")
+                        color: bar.hovered === "vol" ? "#0f111a" : (bar.volumeMuted ? root.palette.color8 : root.palette.color5)
                     }
                     Text {
                         text: (bar.volumeMuted ? (root.isGerman ? "muted" : "muted") : bar.volumePct + "%")
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        color: bar.hovered === "vol" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "vol" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -1125,11 +1183,11 @@ Variants {
                 Layout.preferredWidth: netRow.implicitWidth + 20
                 Layout.preferredHeight: 26
                 radius: 10
-                color: bar.hovered === "net" ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: bar.hovered === "net" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 readonly property string icon: bar.connType === "wifi" ? "" : bar.connType === "ethernet" ? "󰈀" : "󰤭"
                 readonly property string statusText: bar.connType === "wifi" ? (bar.connName || "WLAN") : bar.connType === "ethernet" ? "LAN" : "offline"
-                readonly property color statusColor: bar.connType === "" ? "#565f89" : "#a6e3a1"
+                readonly property color statusColor: bar.connType === "" ? root.palette.color8 : root.palette.color2
 
                 Row {
                     id: netRow
@@ -1147,7 +1205,7 @@ Variants {
                         font.pixelSize: 13
                         elide: Text.ElideRight
                         width: Math.min(implicitWidth, 90)
-                        color: bar.hovered === "net" ? "#0f111a" : "#c0caf5"
+                        color: bar.hovered === "net" ? "#0f111a" : root.palette.foreground
                     }
                 }
 
@@ -1179,14 +1237,14 @@ Variants {
                 Layout.preferredWidth: visible ? 32 : 0
                 Layout.preferredHeight: 26
                 radius: 10
-                color: (helpArea.containsMouse || root.helpOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: (helpArea.containsMouse || root.helpOpen) ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Text {
                     anchors.centerIn: parent
                     text: ""
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 14
-                    color: (helpArea.containsMouse || root.helpOpen) ? "#0f111a" : "#7aa2f7"
+                    color: (helpArea.containsMouse || root.helpOpen) ? "#0f111a" : root.palette.color12
                 }
 
                 MouseArea {
@@ -1204,14 +1262,14 @@ Variants {
                 Layout.preferredWidth: 100
                 Layout.preferredHeight: 26
                 radius: 10
-                color: (clockArea.containsMouse || bar.calendarOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: (clockArea.containsMouse || bar.calendarOpen) ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Text {
                     anchors.centerIn: parent
                     text: Qt.formatDateTime(bar.now, "dd.MM. hh:mm")
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
-                    color: (clockArea.containsMouse || bar.calendarOpen) ? "#0f111a" : "#c0caf5"
+                    color: (clockArea.containsMouse || bar.calendarOpen) ? "#0f111a" : root.palette.foreground
                 }
 
                 MouseArea {
@@ -1229,14 +1287,14 @@ Variants {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 26
                 radius: 10
-                color: (powerArea.containsMouse || bar.menuOpen) ? "#1793d1" : Qt.rgba(0.102, 0.106, 0.149, 0.85)
+                color: (powerArea.containsMouse || bar.menuOpen) ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
 
                 Text {
                     anchors.centerIn: parent
                     text: ""
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 15
-                    color: (powerArea.containsMouse || bar.menuOpen) ? "#0f111a" : "#1793d1"
+                    color: (powerArea.containsMouse || bar.menuOpen) ? "#0f111a" : root.palette.accent
                 }
 
                 MouseArea {
@@ -1268,7 +1326,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1289,21 +1347,21 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             font.bold: true
-                            color: "#1793d1"
+                            color: root.palette.accent
                         }
                         Text {
                             visible: bar.hovered === "cpu"
                             text: (root.isGerman ? "Last (1/5/15 Min): " : "Load (1/5/15 min): ") + bar.load1 + " / " + bar.load5 + " / " + bar.load15
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
                         Text {
                             visible: bar.hovered === "cpu" && bar.tempAvailable
                             text: (root.isGerman ? "Temperatur (Tctl): " : "Temperature (Tctl): ") + bar.tempC + "°C"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#7aa2f7"
+                            color: root.palette.color12
                         }
                         GridLayout {
                             visible: bar.hovered === "cpu" && bar.perCore.length > 0
@@ -1319,7 +1377,7 @@ Variants {
                                     text: "C" + index + ": " + modelData + "%"
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
-                                    color: "#565f89"
+                                    color: root.palette.color8
                                 }
                             }
                         }
@@ -1328,14 +1386,14 @@ Variants {
                             text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                         Text {
                             visible: bar.hovered === "mem"
                             text: (root.isGerman ? "Belegt: " : "Used: ") + bar.memUsed.toFixed(1) + " / " + bar.memTotal.toFixed(1) + " GiB"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
                         ColumnLayout {
                             visible: bar.hovered === "disk"
@@ -1358,19 +1416,19 @@ Variants {
                                         font.bold: index === bar.diskIndex
                                         elide: Text.ElideMiddle
                                         Layout.fillWidth: true
-                                        color: index === bar.diskIndex ? "#c0caf5" : "#9aa5ce"
+                                        color: index === bar.diskIndex ? root.palette.foreground : "#9aa5ce"
                                     }
                                     Text {
                                         text: modelData.pct + "%" + "  ·  " + (root.isGerman ? "Belegt " : "Used ") + modelData.used.toFixed(0) + " / " + modelData.total.toFixed(0) + " GiB" + "  ·  " + (root.isGerman ? "Frei " : "Free ") + modelData.avail.toFixed(0) + " GiB"
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 11
-                                        color: "#565f89"
+                                        color: root.palette.color8
                                     }
                                     Text {
                                         text: "R: " + root.fmtRate(modelData.readKBps) + "   W: " + root.fmtRate(modelData.writeKBps)
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 11
-                                        color: "#565f89"
+                                        color: root.palette.color8
                                     }
                                 }
                             }
@@ -1380,28 +1438,28 @@ Variants {
                             text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                         Text {
                             visible: bar.hovered === "gpu"
                             text: (root.isGerman ? "Temperatur: " : "Temperature: ") + bar.gpuTemp + "°C"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#7aa2f7"
+                            color: root.palette.color12
                         }
                         Text {
                             visible: bar.hovered === "gpu"
                             text: "VRAM: " + bar.gpuMemUsed + " / " + bar.gpuMemTotal + " MiB"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                         Text {
                             visible: bar.hovered === "gpu"
                             text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                         Text {
                             visible: bar.hovered === "vol"
@@ -1410,7 +1468,7 @@ Variants {
                             text: root.isGerman ? "Klick: Mixer  ·  Rechtsklick: Stumm  ·  Scroll: Lautstärke" : "Click: Mixer  ·  Right-click: Mute  ·  Scroll: Volume"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                     }
                 }
@@ -1433,7 +1491,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1448,13 +1506,13 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             font.bold: true
-                            color: "#1793d1"
+                            color: root.palette.accent
                         }
                         Text {
                             text: bar.connType === "" ? (root.isGerman ? "Nicht verbunden" : "Not connected") : (bar.connType === "wifi" ? (root.isGerman ? "WLAN" : "Wi-Fi") : (root.isGerman ? "Kabelgebunden" : "Wired"))
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
                         Text {
                             visible: bar.connType === "wifi"
@@ -1463,33 +1521,33 @@ Variants {
                             wrapMode: Text.WrapAnywhere
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#a6e3a1"
+                            color: root.palette.color2
                         }
                         Text {
                             text: (bar.showPublicIp ? (root.isGerman ? "Öffentliche IP: " : "Public IP: ") + (bar.publicIpLoading ? "…" : (bar.publicIp || "n/a")) : (root.isGerman ? "Lokale IP: " : "Local IP: ") + (bar.localIp || "n/a"))
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#7aa2f7"
+                            color: root.palette.color12
                         }
                         Text {
                             visible: bar.netDevice !== ""
                             text: (root.isGerman ? "Gerät: " : "Device: ") + bar.netDevice
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                         Text {
                             visible: bar.connType !== ""
                             text: " " + root.fmtBitrate(bar.netRxKBps) + "    " + root.fmtBitrate(bar.netTxKBps)
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
                         Text {
                             text: root.isGerman ? "Klicken zum Wechseln" : "Click to toggle"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                     }
                 }
@@ -1512,7 +1570,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1527,19 +1585,19 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             font.bold: true
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
                         Text {
                             text: (root.isGerman ? "KW " : "Week ") + root.isoWeek(bar.now)
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#7aa2f7"
+                            color: root.palette.color12
                         }
                         Text {
                             text: Qt.formatDateTime(bar.now, "hh:mm:ss")
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
                     }
                 }
@@ -1562,7 +1620,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1572,7 +1630,7 @@ Variants {
                         text: root.isGerman ? "Zeigt alle Tastenkombinationen" : "Shows all keybinds"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
-                        color: "#c0caf5"
+                        color: root.palette.foreground
                     }
                 }
             }
@@ -1601,7 +1659,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 12
-                    color: "#f01a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1616,7 +1674,7 @@ Variants {
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 18
                             font.bold: true
-                            color: "#c0caf5"
+                            color: root.palette.foreground
                         }
 
                         Flickable {
@@ -1645,7 +1703,7 @@ Variants {
                                             font.family: "JetBrainsMono Nerd Font"
                                             font.pixelSize: 15
                                             font.bold: true
-                                            color: "#1793d1"
+                                            color: root.palette.accent
                                         }
 
                                         Repeater {
@@ -1660,7 +1718,7 @@ Variants {
                                                     text: modelData.keys
                                                     font.family: "JetBrainsMono Nerd Font"
                                                     font.pixelSize: 14
-                                                    color: "#7aa2f7"
+                                                    color: root.palette.color12
                                                     Layout.preferredWidth: 225
                                                     wrapMode: Text.WrapAnywhere
                                                 }
@@ -1669,7 +1727,7 @@ Variants {
                                                     text: root.isGerman ? modelData.de : modelData.en
                                                     font.family: "JetBrainsMono Nerd Font"
                                                     font.pixelSize: 14
-                                                    color: "#c0caf5"
+                                                    color: root.palette.foreground
                                                     wrapMode: Text.WordWrap
                                                 }
                                             }
@@ -1705,7 +1763,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 12
-                    color: "#f01a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1723,7 +1781,7 @@ Variants {
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.pixelSize: 14
                                 font.bold: true
-                                color: "#c0caf5"
+                                color: root.palette.foreground
                             }
 
                             Rectangle {
@@ -1731,7 +1789,7 @@ Variants {
                                 Layout.preferredWidth: readAllText.implicitWidth + 16
                                 Layout.preferredHeight: 24
                                 radius: 8
-                                color: readAllArea.containsMouse ? "#1793d1" : Qt.rgba(0.478, 0.635, 0.969, 0.15)
+                                color: readAllArea.containsMouse ? root.palette.accent : Qt.rgba(0.478, 0.635, 0.969, 0.15)
 
                                 Text {
                                     id: readAllText
@@ -1739,7 +1797,7 @@ Variants {
                                     text: "\uf00c  " + (root.isGerman ? "Alle gelesen" : "Mark all read")
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
-                                    color: readAllArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                    color: readAllArea.containsMouse ? "#0f111a" : root.palette.foreground
                                 }
 
                                 MouseArea {
@@ -1759,7 +1817,7 @@ Variants {
                             text: root.isGerman ? "Alles gelesen" : "All caught up"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
 
                         ListView {
@@ -1777,7 +1835,7 @@ Variants {
                                 radius: 10
                                 color: cardArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.18) : Qt.rgba(0.478, 0.635, 0.969, 0.08)
                                 border.width: modelData.urgency === "critical" ? 1 : 0
-                                border.color: "#f7768e"
+                                border.color: root.palette.color1
 
                                 ColumnLayout {
                                     id: cardCol
@@ -1792,13 +1850,13 @@ Variants {
                                             elide: Text.ElideRight
                                             font.family: "JetBrainsMono Nerd Font"
                                             font.pixelSize: 10
-                                            color: "#1793d1"
+                                            color: root.palette.accent
                                         }
                                         Text {
                                             text: "\uf00c"
                                             font.family: "JetBrainsMono Nerd Font"
                                             font.pixelSize: 11
-                                            color: cardArea.containsMouse ? "#a6e3a1" : "#565f89"
+                                            color: cardArea.containsMouse ? root.palette.color2 : root.palette.color8
                                         }
                                     }
                                     Text {
@@ -1810,7 +1868,7 @@ Variants {
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 12
                                         font.bold: true
-                                        color: "#c0caf5"
+                                        color: root.palette.foreground
                                     }
                                     Text {
                                         visible: modelData.body !== ""
@@ -1861,7 +1919,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -1877,7 +1935,7 @@ Variants {
                             Text {
                                 text: "‹"
                                 font.pixelSize: 16
-                                color: "#7aa2f7"
+                                color: root.palette.color12
                                 MouseArea {
                                     anchors.fill: parent
                                     anchors.margins: -6
@@ -1898,13 +1956,13 @@ Variants {
                                 text: Qt.formatDateTime(new Date(bar.viewYear, bar.viewMonth, 1), "MMMM yyyy")
                                 font.bold: true
                                 font.pixelSize: 13
-                                color: "#c0caf5"
+                                color: root.palette.foreground
                             }
 
                             Text {
                                 text: "›"
                                 font.pixelSize: 16
-                                color: "#7aa2f7"
+                                color: root.palette.color12
                                 MouseArea {
                                     anchors.fill: parent
                                     anchors.margins: -6
@@ -1933,7 +1991,7 @@ Variants {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: Qt.locale().dayName(index + 1, Locale.ShortFormat)
                                     font.pixelSize: 11
-                                    color: "#565f89"
+                                    color: root.palette.color8
                                 }
                             }
                         }
@@ -1951,7 +2009,7 @@ Variants {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: modelData.weekNum
                                     font.pixelSize: 10
-                                    color: "#565f89"
+                                    color: root.palette.color8
                                 }
 
                                 Repeater {
@@ -1962,12 +2020,12 @@ Variants {
                                         Layout.preferredWidth: 24
                                         Layout.preferredHeight: 22
                                         radius: 6
-                                        color: modelData.isToday ? "#1793d1" : "transparent"
+                                        color: modelData.isToday ? root.palette.accent : "transparent"
                                         Text {
                                             anchors.centerIn: parent
                                             text: modelData.day ?? ""
                                             font.pixelSize: 11
-                                            color: modelData.isToday ? "#0f111a" : (modelData.day ? "#c0caf5" : "transparent")
+                                            color: modelData.isToday ? "#0f111a" : (modelData.day ? root.palette.foreground : "transparent")
                                         }
                                     }
                                 }
@@ -2001,7 +2059,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -2072,7 +2130,7 @@ Variants {
                 Rectangle {
                     anchors.fill: parent
                     radius: 10
-                    color: "#e61a1b26"
+                    color: root.argb(root.palette.popup_color, root.popupOpacity)
                     border.width: 1
                     border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -2087,7 +2145,7 @@ Variants {
                             text: root.isGerman ? "Keine Fenster ge\u00f6ffnet" : "No open windows"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
-                            color: "#565f89"
+                            color: root.palette.color8
                         }
 
                         Repeater {
@@ -2099,7 +2157,7 @@ Variants {
                                 Layout.fillWidth: true
                                 implicitHeight: 30
                                 radius: 8
-                                color: winRowArea.containsMouse ? "#1793d1" : "transparent"
+                                color: winRowArea.containsMouse ? root.palette.accent : "transparent"
 
                                 RowLayout {
                                     anchors.fill: parent
@@ -2112,7 +2170,7 @@ Variants {
                                         text: winRow.modelData.workspace ? winRow.modelData.workspace.name : ""
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 11
-                                        color: winRowArea.containsMouse ? "#0f111a" : "#565f89"
+                                        color: winRowArea.containsMouse ? "#0f111a" : root.palette.color8
                                     }
 
                                     Text {
@@ -2121,7 +2179,7 @@ Variants {
                                         text: winRow.modelData.title
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 13
-                                        color: winRowArea.containsMouse ? "#0f111a" : "#c0caf5"
+                                        color: winRowArea.containsMouse ? "#0f111a" : root.palette.foreground
                                     }
                                 }
 

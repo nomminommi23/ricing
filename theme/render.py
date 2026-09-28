@@ -5,7 +5,7 @@
   render.py --no-reload  same, but skip reloading apps (used right after --set, which reloads itself)
   render.py --dump      print every color as JSON (used by ThemeWidget.qml)
   render.py --get KEY   print one color (e.g. for shell scripts)
-  render.py --set KEY VALUE [KEY VALUE ...]   change one or more colors in colors.toml, re-render, reload
+  render.py --set KEY VALUE [KEY VALUE ...]   change one or more colors/opacities in colors.toml, re-render, reload
 
 Templates live in theme/templates/<app>/{config.json,template}: config.json names the
 template file and the destination it gets rendered to (~ expanded). Placeholders in a
@@ -42,7 +42,9 @@ def substitute(text, colors):
             sys.exit(f"render.py: unknown color key '{key}' in template")
         value = colors[key]
         if fmt is None:
-            return value
+            return str(value)
+        if not isinstance(value, str):
+            sys.exit(f"render.py: '.{fmt}' needs a #rrggbb color, '{key}' is {value!r}")
         if fmt == "strip":
             return value.lstrip("#")
         if fmt == "rgba":
@@ -70,6 +72,13 @@ def reload_apps():
     subprocess.run(["hyprctl", "reload"], check=False, capture_output=True)
     subprocess.run(["makoctl", "reload"], check=False, capture_output=True)
     subprocess.run(["pkill", "--signal", "USR1", "-x", "kitty"], check=False, capture_output=True)
+    # Best-effort: tell the running shell (bar + theme widget, two separate IPC targets
+    # since they're two separate top-level QML components) to re-fetch the palette, for
+    # the bits of it (pill/popup/bar opacity) that only live in QML, not another app's
+    # config file. A no-op if quickshell isn't running.
+    for target in ("theme", "theme-widget"):
+        subprocess.run(["quickshell", "-c", "default", "ipc", "call", target, "changed"],
+                        check=False, capture_output=True, timeout=3)
 
 
 def set_colors(pairs):
@@ -78,12 +87,24 @@ def set_colors(pairs):
     for key, value in pairs:
         if key not in colors:
             sys.exit(f"render.py: unknown color key '{key}'")
-        if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-            sys.exit(f"render.py: '{value}' is not a #rrggbb color")
-        new_text, n = re.subn(rf"(?m)^{re.escape(key)}\s*=\s*\"#[0-9a-fA-F]{{6}}\"",
-                              f'{key} = "{value.lower()}"', text)
+        if isinstance(colors[key], str):
+            if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+                sys.exit(f"render.py: '{value}' is not a #rrggbb color")
+            literal = f'"{value.lower()}"'
+            pattern = r'"#[0-9a-fA-F]{6}"'
+        else:
+            try:
+                v = float(value)
+            except ValueError:
+                sys.exit(f"render.py: '{value}' is not a number (expected 0-1, for '{key}')")
+            if not 0 <= v <= 1:
+                sys.exit(f"render.py: '{value}' is out of range (expected 0-1, for '{key}')")
+            literal = repr(v)
+            pattern = r"[0-9]*\.?[0-9]+"
+        new_text, n = re.subn(rf"(?m)^{re.escape(key)}\s*=\s*{pattern}",
+                              f"{key} = {literal}", text)
         if n != 1:
-            sys.exit(f"render.py: could not find a single '{key} = \"...\"' line to replace")
+            sys.exit(f"render.py: could not find a single '{key} = ...' line to replace")
         text = new_text
     open(COLORS, "w").write(text)
 

@@ -29,3 +29,15 @@ color12 = "#7aa2f7"
 color13 = "#cba6f7"
 color14 = "#89dceb"
 color15 = "#ffffff"
+
+# Bar/pill/popup background colors (the terminal's is "background" above, already shared
+# with mako) - each paired with the matching *_opacity float below for its transparency
+bar_color = "#12131b"
+pill_color = "#1a1b26"
+popup_color = "#1a1b26"
+
+# Opacity (0-1) for the bar itself, its pills, its popups, and the terminal background
+bar_opacity = 0.18
+pill_opacity = 0.85
+popup_opacity = 0.9
+terminal_opacity = 0.85

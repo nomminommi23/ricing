@@ -29,10 +29,23 @@ PanelWindow {
 
     property bool wallpaperOpen: false
     property bool colorsOpen: false
+    property bool presetsOpen: false
     property var wallpapers: []
+
+    // ---- presets: named snapshots of the whole palette (theme/presets.py) ----
+    property var presetsDefault: ({ name: "Default", current: true })
+    property var presetsList: []
+    property string presetNameInput: ""
 
     // ---- color roles: key -> current hex, kept in sync with theme/colors.toml ----
     property var colorValues: ({})
+    readonly property real popupOpacity: colorValues.popup_opacity !== undefined ? colorValues.popup_opacity : 0.90
+    readonly property string popupColor: colorValues.popup_color !== undefined ? colorValues.popup_color : "#1a1b26"
+
+    function argb(hex, alpha) {
+        var a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, "0")
+        return "#" + a + hex.slice(1)
+    }
     property string editingKey: ""
     property string hexInput: ""
 
@@ -41,15 +54,47 @@ PanelWindow {
         "color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7",
         "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"]
 
+    // What each role actually paints, verified against theme/templates/ (border/urgency/accent
+    // colors) and the literal hex values hardcoded in Bar.qml (the bar isn't template-driven,
+    // its colors were hand-matched to the palette - see the Theming section of README.md).
+    // Several ANSI slots aren't wired up to anything yet (background, selection, color0/15) or
+    // currently equal their "bright" sibling 1:1 - labelled as such rather than guessed at.
     readonly property var roleLabels: ({
-        accent: "Accent", cursor: "Cursor", foreground: "Foreground", background: "Background",
-        selection_foreground: isGerman ? "Auswahl (Text)" : "Selection (fg)",
-        selection_background: isGerman ? "Auswahl (Hintergrund)" : "Selection (bg)",
-        color0: "Color 0", color1: "Color 1", color2: "Color 2", color3: "Color 3",
-        color4: "Color 4", color5: "Color 5", color6: "Color 6", color7: "Color 7",
-        color8: "Color 8", color9: "Color 9", color10: "Color 10", color11: "Color 11",
-        color12: "Color 12", color13: "Color 13", color14: "Color 14", color15: "Color 15",
+        accent: isGerman ? "Akzent (Hervorhebung)" : "Accent (highlights)",
+        cursor: isGerman ? "Cursor (Terminal)" : "Cursor (terminal)",
+        foreground: isGerman ? "Vordergrund (Text)" : "Foreground (text)",
+        background: isGerman ? "Hintergrund (Terminal, mako)" : "Background (terminal, mako)",
+        selection_foreground: isGerman ? "Auswahltext (ungenutzt)" : "Selection text (unused)",
+        selection_background: isGerman ? "Auswahlhintergrund (ungenutzt)" : "Selection bg (unused)",
+        color0: isGerman ? "Schwarz (ungenutzt)" : "Black (unused)",
+        color1: isGerman ? "Rot (kritisch, Badges)" : "Red (critical, badges)",
+        color2: isGerman ? "Grün (GPU-Icon, verbunden)" : "Green (GPU icon, connected)",
+        color3: isGerman ? "Gelb (Temp-Warnung)" : "Yellow (temp warning)",
+        color4: isGerman ? "Blau (Rahmenfarben)" : "Blue (border colors)",
+        color5: isGerman ? "Magenta (Lautstärke-Icon)" : "Magenta (volume icon)",
+        color6: isGerman ? "Cyan (RAM-Icon)" : "Cyan (RAM icon)",
+        color7: isGerman ? "Weiß (= Vordergrund)" : "White (= Foreground)",
+        color8: isGerman ? "Gedämpft (inaktiv, Hinweise)" : "Muted (inactive, hints)",
+        color9: isGerman ? "Hellrot (= Rot)" : "Bright red (= Red)",
+        color10: isGerman ? "Hellgrün (= Grün)" : "Bright green (= Green)",
+        color11: isGerman ? "Hellgelb (= Gelb)" : "Bright yellow (= Yellow)",
+        color12: isGerman ? "Hellblau (Detailtext, Hilfe)" : "Bright blue (detail text, help)",
+        color13: isGerman ? "Hellmagenta (= Magenta)" : "Bright magenta (= Magenta)",
+        color14: isGerman ? "Hellcyan (= Cyan)" : "Bright cyan (= Cyan)",
+        color15: isGerman ? "Hellweiß (ungenutzt)" : "Bright white (unused)",
+        bar_color: isGerman ? "Bar-Hintergrund" : "Bar background",
+        pill_color: isGerman ? "Pill-Hintergrund" : "Pill background",
+        popup_color: isGerman ? "Popup-Hintergrund" : "Popup background",
     })
+
+    // colorKey pairs each opacity with the color it fades - clicking its swatch jumps into
+    // the same role editor (step 2 below) used for every other color.
+    readonly property var opacityFields: [
+        { key: "bar_opacity", colorKey: "bar_color", label: isGerman ? "Bar" : "Bar" },
+        { key: "pill_opacity", colorKey: "pill_color", label: isGerman ? "Pills" : "Pills" },
+        { key: "popup_opacity", colorKey: "popup_color", label: isGerman ? "Popups" : "Popups" },
+        { key: "terminal_opacity", colorKey: "background", label: isGerman ? "Terminal" : "Terminal" },
+    ]
 
     // A curated set of preset swatches for the color picker - independent of the current
     // theme, so it always offers real alternatives instead of just the colors already in use.
@@ -62,6 +107,10 @@ PanelWindow {
 
     function refreshColors() { colorsDump.running = true }
     function refreshWallpapers() { wallpaperList.running = true }
+    function refreshPresets() {
+        presetsDefaultProc.running = true
+        presetsListProc.running = true
+    }
 
     Process {
         id: colorsDump
@@ -76,6 +125,51 @@ PanelWindow {
         id: colorsSet
         stdout: StdioCollector {}
         onExited: widget.refreshColors()
+    }
+
+    Process {
+        id: opacitySet
+        stdout: StdioCollector {}
+        onExited: widget.refreshColors()
+    }
+
+    Process {
+        id: presetsDefaultProc
+        command: ["python3", widget.themeDir + "/presets.py", "default"]
+        stdout: StdioCollector { id: presetsDefaultCollector }
+        onExited: {
+            try { widget.presetsDefault = JSON.parse(presetsDefaultCollector.text) } catch (e) {}
+        }
+    }
+
+    Process {
+        id: presetsListProc
+        command: ["python3", widget.themeDir + "/presets.py", "list"]
+        stdout: StdioCollector { id: presetsListCollector }
+        onExited: {
+            try { widget.presetsList = JSON.parse(presetsListCollector.text) } catch (e) {}
+        }
+    }
+
+    Process {
+        id: presetsSave
+        stdout: StdioCollector {}
+        onExited: widget.refreshPresets()
+    }
+
+    Process {
+        id: presetsLoad
+        stdout: StdioCollector {}
+        onExited: {
+            widget.refreshPresets()
+            widget.refreshColors()
+        }
+    }
+
+    Process {
+        id: presetsDelete
+        stdout: StdioCollector {}
+        onExited: widget.refreshPresets()
     }
 
     Process {
@@ -100,9 +194,19 @@ PanelWindow {
         onExited: widget.refreshWallpapers()
     }
 
+    IpcHandler {
+        target: "theme-widget"
+
+        function changed(): void {
+            widget.refreshColors()
+            widget.refreshPresets()
+        }
+    }
+
     Component.onCompleted: {
         refreshColors()
         refreshWallpapers()
+        refreshPresets()
     }
 
     Rectangle {
@@ -138,6 +242,7 @@ PanelWindow {
                     hoverEnabled: true
                     onClicked: {
                         widget.colorsOpen = false
+                        widget.presetsOpen = false
                         widget.wallpaperOpen = !widget.wallpaperOpen
                         if (widget.wallpaperOpen) widget.refreshWallpapers()
                     }
@@ -163,10 +268,40 @@ PanelWindow {
                     hoverEnabled: true
                     onClicked: {
                         widget.wallpaperOpen = false
+                        widget.presetsOpen = false
                         widget.colorsOpen = !widget.colorsOpen
                         if (widget.colorsOpen) {
                             widget.editingKey = ""
                             widget.refreshColors()
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: 30; height: 26
+                radius: 8
+                color: (presetArea.containsMouse || widget.presetsOpen) ? "#1793d1" : "transparent"
+
+                Text {
+                    anchors.centerIn: parent
+                    text: ""
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 14
+                    color: (presetArea.containsMouse || widget.presetsOpen) ? "#0f111a" : "#a6e3a1"
+                }
+
+                MouseArea {
+                    id: presetArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        widget.wallpaperOpen = false
+                        widget.colorsOpen = false
+                        widget.presetsOpen = !widget.presetsOpen
+                        if (widget.presetsOpen) {
+                            widget.presetNameInput = ""
+                            widget.refreshPresets()
                         }
                     }
                 }
@@ -198,7 +333,7 @@ PanelWindow {
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: "#f01a1b26"
+                color: widget.argb(widget.popupColor, widget.popupOpacity)
                 border.width: 1
                 border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -319,7 +454,7 @@ PanelWindow {
             screen: widget.screen
             anchors { top: true; left: true }
             margins { top: 48; left: 10 }
-            implicitWidth: 340
+            implicitWidth: 460
             implicitHeight: colorsCol.implicitHeight + 24
             color: "transparent"
             WlrLayershell.namespace: "theme-widget-colors"
@@ -334,7 +469,7 @@ PanelWindow {
             Rectangle {
                 anchors.fill: parent
                 radius: 12
-                color: "#f01a1b26"
+                color: widget.argb(widget.popupColor, widget.popupOpacity)
                 border.width: 1
                 border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
 
@@ -405,6 +540,115 @@ PanelWindow {
                                             widget.hexInput = widget.colorValues[modelData] || ""
                                         }
                                     }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            Layout.topMargin: 2
+                            color: Qt.rgba(0.478, 0.635, 0.969, 0.2)
+                        }
+
+                        Text {
+                            text: widget.isGerman ? "Transparenz" : "Opacity"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: "#565f89"
+                        }
+
+                        Repeater {
+                            model: widget.opacityFields
+
+                            RowLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                readonly property real liveValue: widget.colorValues[modelData.key] !== undefined ? widget.colorValues[modelData.key] : 1
+                                property real dragValue: liveValue
+                                readonly property real shownValue: track.pressed ? dragValue : liveValue
+
+                                Text {
+                                    Layout.preferredWidth: 52
+                                    text: modelData.label
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                    color: "#c0caf5"
+                                }
+
+                                Rectangle {
+                                    Layout.preferredWidth: 16
+                                    Layout.preferredHeight: 16
+                                    radius: 4
+                                    color: widget.colorValues[modelData.colorKey] || "#000000"
+                                    border.width: 1
+                                    border.color: Qt.rgba(1, 1, 1, 0.2)
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            widget.editingKey = modelData.colorKey
+                                            widget.hexInput = widget.colorValues[modelData.colorKey] || ""
+                                        }
+                                    }
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 20
+
+                                    Rectangle {
+                                        id: sliderTrack
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width
+                                        height: 6
+                                        radius: 3
+                                        color: Qt.rgba(0.478, 0.635, 0.969, 0.15)
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: sliderTrack.width * Math.max(0, Math.min(1, shownValue))
+                                        height: 6
+                                        radius: 3
+                                        color: "#1793d1"
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        x: Math.max(0, Math.min(sliderTrack.width, sliderTrack.width * shownValue)) - width / 2
+                                        width: 14; height: 14
+                                        radius: 7
+                                        color: "#c0caf5"
+                                        border.width: track.pressed ? 2 : 0
+                                        border.color: "#1793d1"
+                                    }
+
+                                    MouseArea {
+                                        id: track
+                                        anchors.fill: parent
+                                        preventStealing: true
+
+                                        function valueAt(mx) {
+                                            return Math.max(0, Math.min(1, mx / width))
+                                        }
+                                        onPressed: (mouse) => { dragValue = valueAt(mouse.x) }
+                                        onPositionChanged: (mouse) => { if (pressed) dragValue = valueAt(mouse.x) }
+                                        onReleased: {
+                                            opacitySet.command = ["python3", widget.themeDir + "/render.py", "--set", modelData.key, dragValue.toFixed(2)]
+                                            opacitySet.running = true
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.preferredWidth: 34
+                                    horizontalAlignment: Text.AlignRight
+                                    text: Math.round(shownValue * 100) + "%"
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                    color: "#565f89"
                                 }
                             }
                         }
@@ -526,6 +770,236 @@ PanelWindow {
                                         colorsSet.command = ["python3", widget.themeDir + "/render.py", "--set", widget.editingKey, widget.hexInput]
                                         colorsSet.running = true
                                         widget.editingKey = ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ================= PRESETS POPUP =================
+    LazyLoader {
+        active: widget.presetsOpen
+
+        PanelWindow {
+            id: presetsWindow
+            screen: widget.screen
+            anchors { top: true; left: true }
+            margins { top: 48; left: 10 }
+            implicitWidth: 320
+            implicitHeight: presetsCol.implicitHeight + 24
+            color: "transparent"
+            WlrLayershell.namespace: "theme-widget-presets"
+            WlrLayershell.layer: WlrLayer.Top
+
+            HyprlandFocusGrab {
+                windows: [ presetsWindow ]
+                active: true
+                onCleared: widget.presetsOpen = false
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 12
+                color: widget.argb(widget.popupColor, widget.popupOpacity)
+                border.width: 1
+                border.color: Qt.rgba(0.478, 0.635, 0.969, 0.35)
+
+                ColumnLayout {
+                    id: presetsCol
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 8
+
+                    Text {
+                        text: widget.isGerman ? "Gespeicherte Profile" : "Saved presets"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 15
+                        font.bold: true
+                        color: "#c0caf5"
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 30
+                            radius: 6
+                            color: "#0f111a"
+                            border.width: 1
+                            border.color: Qt.rgba(0.478, 0.635, 0.969, 0.3)
+
+                            TextInput {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                text: widget.presetNameInput
+                                onTextEdited: widget.presetNameInput = text
+                                maximumLength: 40
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 12
+                                color: "#c0caf5"
+                                selectByMouse: true
+                                validator: RegularExpressionValidator { regularExpression: /[A-Za-z0-9 _-]*/ }
+
+                                Text {
+                                    visible: parent.text === ""
+                                    text: "Name…"
+                                    font: parent.font
+                                    color: "#565f89"
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 70
+                            Layout.preferredHeight: 30
+                            radius: 6
+                            readonly property bool valid: widget.presetNameInput.trim().length > 0
+                            color: !valid ? Qt.rgba(0.478, 0.635, 0.969, 0.1) : (saveArea.containsMouse ? "#1793d1" : Qt.rgba(0.478, 0.635, 0.969, 0.25))
+                            opacity: valid ? 1.0 : 0.5
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: widget.isGerman ? "Speichern" : "Save"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 11
+                                color: saveArea.containsMouse ? "#0f111a" : "#c0caf5"
+                            }
+
+                            MouseArea {
+                                id: saveArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                enabled: parent.valid
+                                onClicked: {
+                                    presetsSave.command = ["python3", widget.themeDir + "/presets.py", "save", widget.presetNameInput.trim()]
+                                    presetsSave.running = true
+                                    widget.presetNameInput = ""
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: Qt.rgba(0.478, 0.635, 0.969, 0.2)
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 30
+                            radius: 8
+                            color: defaultArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.18) : (widget.presetsDefault.current ? Qt.rgba(0.478, 0.635, 0.969, 0.1) : "transparent")
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 6
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: widget.isGerman ? "Standard" : "Default"
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 12
+                                    color: "#c0caf5"
+                                }
+                                Text {
+                                    visible: widget.presetsDefault.current
+                                    text: ""
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                    color: "#1793d1"
+                                }
+                            }
+
+                            MouseArea {
+                                id: defaultArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    presetsLoad.command = ["python3", widget.themeDir + "/presets.py", "load", "Default"]
+                                    presetsLoad.running = true
+                                }
+                            }
+                        }
+
+                        Repeater {
+                            model: widget.presetsList
+
+                            Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                radius: 8
+                                color: rowArea.containsMouse ? Qt.rgba(0.478, 0.635, 0.969, 0.18) : (modelData.current ? Qt.rgba(0.478, 0.635, 0.969, 0.1) : "transparent")
+
+                                // Declared before the row content below, so the trash icon's own
+                                // MouseArea (a descendant of a later sibling) sits on top of this
+                                // one and claims its clicks first; this one gets the rest of the row.
+                                MouseArea {
+                                    id: rowArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        presetsLoad.command = ["python3", widget.themeDir + "/presets.py", "load", modelData.name]
+                                        presetsLoad.running = true
+                                    }
+                                }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.name
+                                        elide: Text.ElideRight
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 12
+                                        color: "#c0caf5"
+                                    }
+                                    Text {
+                                        visible: modelData.current
+                                        text: ""
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 11
+                                        color: "#1793d1"
+                                    }
+                                    Rectangle {
+                                        width: 20; height: 20
+                                        radius: 5
+                                        color: deleteArea.containsMouse ? "#f7768e" : "transparent"
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: ""
+                                            font.family: "JetBrainsMono Nerd Font"
+                                            font.pixelSize: 10
+                                            color: deleteArea.containsMouse ? "#0f111a" : "#565f89"
+                                        }
+
+                                        MouseArea {
+                                            id: deleteArea
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onClicked: {
+                                                presetsDelete.command = ["python3", widget.themeDir + "/presets.py", "delete", modelData.name]
+                                                presetsDelete.running = true
+                                            }
+                                        }
                                     }
                                 }
                             }
