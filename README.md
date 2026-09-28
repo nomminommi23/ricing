@@ -6,13 +6,10 @@ My personal dotfiles for a [Hyprland](https://hyprland.org/) desktop on Arch Lin
 
 ## Installing
 
-The repo is private, so grab `install.sh` with an authenticated clone rather than a raw-file `curl` (which needs a token for a private repo):
-
 ```bash
-git clone https://github.com/nomminommi23/ricing.git /tmp/ricing-installer
-bash /tmp/ricing-installer/install.sh          # clones the repo again and drops its files into ~/.config
-bash /tmp/ricing-installer/install.sh --deps   # same, plus installs dependencies via pacman (Arch only)
-rm -rf /tmp/ricing-installer                   # was only needed to get install.sh itself
+curl -o /tmp/install.sh https://raw.githubusercontent.com/nomminommi23/ricing/main/install.sh
+bash /tmp/install.sh          # clones the repo and drops its files into ~/.config
+bash /tmp/install.sh --deps   # same, plus installs dependencies via pacman (Arch only)
 ```
 
 [`install.sh`](install.sh) never runs a plain `git clone` straight into `~/.config` — that directory already has other apps' configs in it (and `git clone` refuses a non-empty target anyway). Instead it clones into a temp dir first, then moves only the paths this repo actually tracks into `~/.config` one by one; anything already there under the same name gets backed up to `~/.config-backup-<timestamp>/` rather than silently overwritten, and everything else in `~/.config` is left untouched. Re-running it later (e.g. on a machine that already has the rice) detects the existing checkout and just does a `git pull` instead. Pass `--dry-run` to see what it would do without changing anything, or `--repo=<url>` to install from a fork.
