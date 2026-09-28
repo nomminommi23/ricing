@@ -81,7 +81,8 @@ if [ "$INSTALL_DEPS" = 1 ]; then
     if command -v pacman >/dev/null; then
         echo "Installing dependencies via pacman (see README.md for apt/dnf equivalents)..."
         sudo pacman -S --needed hyprland sddm xdg-desktop-portal-hyprland quickshell kitty rofi \
-            mako dolphin swaybg hyprcursor librsvg grim slurp wl-clipboard cliphist zenity \
+            mako thunar thunar-volman thunar-archive-plugin tumbler gvfs gvfs-mtp gvfs-smb \
+            xarchiver swaybg hyprcursor librsvg grim slurp wl-clipboard cliphist zenity \
             networkmanager network-manager-applet wireplumber pavucontrol blueman brightnessctl \
             playerctl lm_sensors nvidia-utils curl python qt5ct qt6ct nwg-look materia-gtk-theme \
             papirus-icon-theme ttf-jetbrains-mono-nerd

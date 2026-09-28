@@ -85,6 +85,7 @@ PanelWindow {
         bar_color: isGerman ? "Bar-Hintergrund" : "Bar background",
         pill_color: isGerman ? "Pill-Hintergrund" : "Pill background",
         popup_color: isGerman ? "Popup-Hintergrund" : "Popup background",
+        gtk_selection_color: isGerman ? "Dateiauswahl (Thunar)" : "File selection (Thunar)",
     })
 
     // colorKey pairs each opacity with the color it fades - clicking its swatch jumps into
@@ -94,6 +95,7 @@ PanelWindow {
         { key: "pill_opacity", colorKey: "pill_color", label: isGerman ? "Pills" : "Pills" },
         { key: "popup_opacity", colorKey: "popup_color", label: isGerman ? "Popups" : "Popups" },
         { key: "terminal_opacity", colorKey: "background", label: isGerman ? "Terminal" : "Terminal" },
+        { key: "gtk_selection_opacity", colorKey: "gtk_selection_color", label: isGerman ? "Auswahl" : "Selection" },
     ]
 
     // A curated set of preset swatches for the color picker - independent of the current
@@ -572,8 +574,9 @@ PanelWindow {
                                 readonly property real shownValue: track.pressed ? dragValue : liveValue
 
                                 Text {
-                                    Layout.preferredWidth: 52
+                                    Layout.preferredWidth: 70
                                     text: modelData.label
+                                    elide: Text.ElideRight
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
                                     color: "#c0caf5"

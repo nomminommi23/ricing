@@ -11,40 +11,40 @@
    plain declarations here win without it. */
 
 * {
-    color: #c0caf5;
+    color: {foreground};
 }
 
 window, dialog, grid {
-    background-color: #1a1b26;
+    background-color: {background};
     background-image: none;
 }
 
 entry, textview, textview text, text {
-    background-color: #1a1b26;
-    color: #1793d1;
-    border: 1px solid #1793d1;
+    background-color: {background};
+    color: {accent};
+    border: 1px solid {accent};
     border-radius: 6px;
     box-shadow: none;
 }
 
 button {
-    background-color: #1a1b26;
+    background-color: {pill_color};
     background-image: none;
-    border: 1px solid #565f89;
+    border: 1px solid {color8};
     border-radius: 6px;
     box-shadow: none;
 }
 
 button:hover {
-    background-color: #565f89;
-    border-color: #1793d1;
+    background-color: {color8};
+    border-color: {accent};
 }
 
 button label {
-    color: #c0caf5;
+    color: {foreground};
 }
 button:hover label {
-    color: #1793d1;
+    color: {accent};
 }
 
 /* Thunar's grid is ExoIconView, an old custom widget that doesn't ask the style
@@ -52,22 +52,22 @@ button:hover label {
    looks up these named colors directly instead (gtk_style_context_lookup_color).
    Redefining them is what actually recolors the selection there; .view:selected/
    *:selected below do nothing for it, only for widgets that DO use normal matching. */
-@define-color theme_selected_bg_color alpha(#7aa2f7, 0.5);
-@define-color theme_selected_fg_color #c0caf5;
-@define-color theme_unfocused_selected_bg_color alpha(#7aa2f7, 0.5);
-@define-color theme_unfocused_selected_fg_color #c0caf5;
+@define-color theme_selected_bg_color alpha({gtk_selection_color}, {gtk_selection_opacity});
+@define-color theme_selected_fg_color {foreground};
+@define-color theme_unfocused_selected_bg_color alpha({gtk_selection_color}, {gtk_selection_opacity});
+@define-color theme_unfocused_selected_fg_color {foreground};
 
 /* File-manager icon/list view (Thunar's grid, Materia's rounded selection pill) */
 .view {
     background-color: transparent;
-    color: #c0caf5;
+    color: {foreground};
 }
 
 .view:hover {
-    background-color: alpha(#1793d1, 0.18);
+    background-color: alpha({accent}, 0.18);
 }
 
 *:selected {
-    background-color: alpha(#7aa2f7, 0.5);
-    color: #c0caf5;
+    background-color: alpha({gtk_selection_color}, {gtk_selection_opacity});
+    color: {foreground};
 }

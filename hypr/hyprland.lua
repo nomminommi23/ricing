@@ -86,7 +86,7 @@ hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 
 local terminal = "kitty"
 
-local fileManager = "dolphin"
+local fileManager = "thunar"
 
 local menu = "rofi -show drun -theme ~/.config/rofi/arch-blue.rasi"
 
@@ -314,7 +314,7 @@ hl.bind(mainMod .. " + " .. "RETURN", hl.dsp.exec_cmd("kitty"))
 
 hl.bind(mainMod .. " + " .. "W", hl.dsp.exec_cmd("zen-browser"))
 
-hl.bind(mainMod .. " + " .. "N", hl.dsp.exec_cmd("dolphin"))
+hl.bind(mainMod .. " + " .. "N", hl.dsp.exec_cmd("thunar"))
 
 hl.bind(mainMod .. " + " .. "SPACE", hl.dsp.exec_cmd("rofi -show drun -theme ~/.config/rofi/arch-blue.rasi"))
 
@@ -627,4 +627,5 @@ hl.on("config.reloaded", function()
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme \"prefer-dark\"")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme \"ArchLogo\"")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-size 24")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme \"AetherRice\"")
 end)

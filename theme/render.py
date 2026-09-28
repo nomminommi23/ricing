@@ -19,6 +19,8 @@ import subprocess
 import sys
 import tomllib
 
+import icon_theme
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 COLORS = os.path.join(HERE, "colors.toml")
 TEMPLATES = os.path.join(HERE, "templates")
@@ -70,6 +72,8 @@ def render_all(colors):
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         open(dest, "w").write(substitute(template, colors))
         print(f"rendered {app} -> {dest}")
+    icon_theme.render(colors)
+    print(f"rendered gtk3-icons -> {icon_theme.DEST_THEME}")
 
 
 def reload_apps():
