@@ -9,7 +9,8 @@
 
 Templates live in theme/templates/<app>/{config.json,template}: config.json names the
 template file and the destination it gets rendered to (~ expanded). Placeholders in a
-template are {key}, {key.strip} (hex without '#'), or {key.rgba:ALPHA}.
+template are {key}, {key.strip} (hex without '#'), {key.rgb} ("r,g,b" decimal, no
+alpha - what KDE's kdeglobals/*.colors files use), or {key.rgba:ALPHA}.
 """
 import json
 import os
@@ -50,6 +51,9 @@ def substitute(text, colors):
         if fmt == "rgba":
             r, g, b = hex_to_rgb(value)
             return f"rgba({r}, {g}, {b}, {arg})"
+        if fmt == "rgb":
+            r, g, b = hex_to_rgb(value)
+            return f"{r},{g},{b}"
         sys.exit(f"render.py: unknown placeholder format '.{fmt}' in template")
     return PLACEHOLDER.sub(repl, text)
 
@@ -79,6 +83,11 @@ def reload_apps():
     for target in ("theme", "theme-widget"):
         subprocess.run(["quickshell", "-c", "default", "ipc", "call", target, "changed"],
                         check=False, capture_output=True, timeout=3)
+    # Best-effort: nudge already-running KDE/Qt apps (Dolphin, etc.) to re-read kdeglobals.
+    # Not every app listens for this, so a restart is still the reliable way to see it.
+    subprocess.run(["dbus-send", "--type=signal", "/KGlobalSettings",
+                    "org.kde.KGlobalSettings.notifyChange", "int32:0", "int32:0"],
+                    check=False, capture_output=True, timeout=3)
 
 
 def set_colors(pairs):
