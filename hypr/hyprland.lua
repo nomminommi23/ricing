@@ -436,7 +436,7 @@ hl.bind("PRINT", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"))
 
 hl.bind("SHIFT + PRINT", hl.dsp.exec_cmd("mkdir -p ~/Pictures/Screenshots && grim -g \"$(slurp)\" ~/Pictures/Screenshots/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png"))
 
-hl.bind(mainMod .. " + " .. "C", hl.dsp.exec_cmd("cliphist list | rofi -dmenu | cliphist decode | wl-copy"))
+hl.bind(mainMod .. " + " .. "C", hl.dsp.exec_cmd("cliphist list | rofi -dmenu -theme ~/.config/rofi/arch-blue.rasi | cliphist decode | wl-copy"))
 
 -- ----------------------------------------------------------
 
