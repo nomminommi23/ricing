@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=aether-rice
+Description=Palette-driven SDDM theme matching the rest of the rice
+Author=nico
+Copyright=(c) 2026, nico
+License=MIT
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=aether-rice
+Theme-API=2.0

@@ -1,0 +1,36 @@
+#!/bin/sh
+# Runs as root before the greeter appears (SDDM's [X11] DisplayCommand=).
+# The biggest monitor isn't otherwise marked primary in a fresh X session - SDDM's own
+# X server then just defaults to whichever output it enumerates first, which is why
+# Main.qml's `primaryScreen` would land on the wrong screen without this.
+#
+# Not a hardcoded output name: Xorg (especially with the nvidia driver, in use here)
+# often names outputs differently than Wayland/DRM does (e.g. "DP-0" vs Hyprland's
+# "DP-1") - a name copied from `hyprctl monitors` can silently match nothing here.
+# Picking by resolution instead works regardless of what this X server calls it.
+BIGGEST=$(xrandr --query | awk '
+    /^[A-Za-z0-9_-]+ connected/ {
+        name = $1
+        for (i = 1; i <= NF; i++) {
+            if ($i ~ /^[0-9]+x[0-9]+\+/) {
+                split($i, wh, "x")
+                split(wh[2], hxy, "+")
+                area = wh[1] * hxy[1]
+                if (area > maxarea) { maxarea = area; biggest = name }
+            }
+        }
+    }
+    END { print biggest }
+')
+{
+    echo "$(date -Iseconds) xrandr --query:"
+    xrandr --query
+    echo "$(date -Iseconds) picked biggest output: '$BIGGEST'"
+    if [ -n "$BIGGEST" ]; then
+        xrandr --output "$BIGGEST" --primary
+        echo "$(date -Iseconds) xrandr --output $BIGGEST --primary exit code: $?"
+    fi
+} >/tmp/aether-rice-xsetup.log 2>&1
+
+# Preserve whatever the stock script does, in case a future sddm update adds to it.
+exec /usr/share/sddm/scripts/Xsetup "$@"

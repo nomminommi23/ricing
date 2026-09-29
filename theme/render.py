@@ -15,6 +15,7 @@ alpha - what KDE's kdeglobals/*.colors files use), or {key.rgba:ALPHA}.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -24,6 +25,10 @@ import icon_theme
 HERE = os.path.dirname(os.path.abspath(__file__))
 COLORS = os.path.join(HERE, "colors.toml")
 TEMPLATES = os.path.join(HERE, "templates")
+
+SDDM_THEME_SRC = os.path.expanduser("~/.config/sddm/aether-rice")
+SDDM_THEME_DEST = "/usr/share/sddm/themes/aether-rice"
+WALLPAPER = os.path.expanduser("~/.config/hypr/wallpaper.png")
 
 PLACEHOLDER = re.compile(r"\{([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_]+))?(?::([^}]+))?\}")
 
@@ -74,6 +79,27 @@ def render_all(colors):
         print(f"rendered {app} -> {dest}")
     icon_theme.render(colors)
     print(f"rendered gtk3-icons -> {icon_theme.DEST_THEME}")
+    sync_sddm_theme()
+
+
+def sync_sddm_theme():
+    """Copies the wallpaper into the SDDM theme dir, then mirrors that whole (small)
+    dir to /usr/share/sddm/themes/aether-rice - the greeter can't read anything under
+    ~/.config (it runs as its own user, and $HOME is 700), so this is the live copy it
+    actually loads. No sudo here: /usr/share/sddm/themes/aether-rice is set up once
+    (see README) with its ownership handed to this user, specifically so this can run
+    on every render like everything else. A no-op, not an error, if that hasn't been
+    done yet - the theme link just won't be enabled until it has.
+    """
+    if not os.path.isdir(SDDM_THEME_SRC):
+        return
+    if os.path.isfile(WALLPAPER):
+        shutil.copy2(WALLPAPER, os.path.join(SDDM_THEME_SRC, "wallpaper.png"))
+    if not os.path.isdir(SDDM_THEME_DEST) or not os.access(SDDM_THEME_DEST, os.W_OK):
+        return
+    for name in os.listdir(SDDM_THEME_SRC):
+        shutil.copy2(os.path.join(SDDM_THEME_SRC, name), os.path.join(SDDM_THEME_DEST, name))
+    print(f"synced sddm theme -> {SDDM_THEME_DEST}")
 
 
 def reload_apps():

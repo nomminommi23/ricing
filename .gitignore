@@ -18,6 +18,7 @@
 !/dolphinrc
 !/Thunar
 !/kdeglobals
+!/sddm
 !/.gitignore
 !/README.md
 !/install.sh
@@ -25,6 +26,11 @@
 # Manual pre-git backups — superseded by git history
 *.bak-*
 /hypr/backups/
+
+# Just a copy of hypr/wallpaper.png, refreshed by render.py's sync_sddm_theme() so the
+# greeter (which can't read ~/.config) has its own copy - tracking it too would just
+# double this repo's size with identical bytes.
+/sddm/aether-rice/wallpaper.png
 
 # Python bytecode cache (theme/presets.py imports theme/render.py as a module)
 __pycache__/

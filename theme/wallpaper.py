@@ -29,6 +29,8 @@ import subprocess
 import sys
 import time
 
+import render
+
 ACTIVE = os.path.expanduser("~/.config/hypr/wallpaper.png")
 ARCHIVE = os.path.expanduser("~/.local/share/quickshell/wallpapers")
 MANIFEST = os.path.join(ARCHIVE, "manifest.json")
@@ -100,6 +102,9 @@ def restart_wallpaper_daemon():
         subprocess.Popen(["swaybg", "-i", ACTIVE, "-m", "fill"],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                           start_new_session=True)
+    render.sync_sddm_theme()  # wallpaper.py never calls render.py, so this doesn't
+                              # happen automatically otherwise - the login screen's
+                              # background would just keep showing whatever it last was.
 
 
 def cmd_list():
