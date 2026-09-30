@@ -84,7 +84,7 @@ if [ "$INSTALL_DEPS" = 1 ]; then
             mako thunar thunar-volman thunar-archive-plugin tumbler gvfs gvfs-mtp gvfs-smb \
             xarchiver swaybg awww hyprcursor librsvg grim slurp wl-clipboard cliphist zenity \
             networkmanager network-manager-applet wireplumber pavucontrol blueman brightnessctl \
-            playerctl lm_sensors nvidia-utils curl python qt5ct qt6ct nwg-look materia-gtk-theme \
+            playerctl lm_sensors nvidia-utils curl python qt6ct nwg-look materia-gtk-theme \
             papirus-icon-theme ttf-jetbrains-mono-nerd
     else
         echo "--deps only knows pacman (Arch). See the Requirements section in README.md for apt/dnf." >&2
