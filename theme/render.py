@@ -46,9 +46,16 @@ def hex_to_rgb(hex_color):
 def substitute(text, colors):
     def repl(m):
         key, fmt, arg = m.group(1), m.group(2), m.group(3)
-        if key not in colors:
+        if key == "home":
+            # Not a palette color - always available, for templates (qt6ct.conf) that
+            # need an absolute path baked in. Without this, that path would hardcode
+            # whoever last ran render.py's home directory into the template output,
+            # breaking it for any other user with their own copy of this repo.
+            value = os.path.expanduser("~")
+        elif key not in colors:
             sys.exit(f"render.py: unknown color key '{key}' in template")
-        value = colors[key]
+        else:
+            value = colors[key]
         if fmt is None:
             return str(value)
         if not isinstance(value, str):

@@ -12,6 +12,8 @@ Variants {
     model: Quickshell.screens
 
     readonly property bool isGerman: Qt.locale().name.startsWith("de")
+    readonly property string themeDir: Quickshell.env("HOME") + "/.config/theme"
+    readonly property string scriptsDir: Quickshell.shellDir + "/scripts"
     readonly property string logoutLabel: isGerman ? "Abmelden" : "Logout"
     readonly property string restartLabel: isGerman ? "Neustart" : "Restart"
     readonly property string shutdownLabel: isGerman ? "Herunterfahren" : "Shutdown"
@@ -210,7 +212,7 @@ Variants {
             sourceComponent: Item {
                 Process {
                     id: themeDump
-                    command: ["python3", "/home/nico/.config/theme/render.py", "--dump"]
+                    command: ["python3", root.themeDir + "/render.py", "--dump"]
                     stdout: StdioCollector { id: themeDumpCollector }
                     onExited: {
                         try {
@@ -308,7 +310,7 @@ Variants {
 
         Process {
             id: statsProc
-            command: ["bash", "/home/nico/.config/quickshell/default/scripts/stats.sh"]
+            command: ["bash", root.scriptsDir + "/stats.sh"]
             stdout: StdioCollector { id: statsCollector }
             onExited: {
                 var p = statsCollector.text.trim().split("|")
@@ -397,7 +399,7 @@ Variants {
         // ---- notification panel (mako history minus what was marked read) ----
         Process {
             id: notifProc
-            command: ["python3", "/home/nico/.config/quickshell/default/scripts/notifs.py"]
+            command: ["python3", root.scriptsDir + "/notifs.py"]
             stdout: StdioCollector { id: notifCollector }
             onExited: {
                 try { bar.notifList = JSON.parse(notifCollector.text) } catch (e) {}
@@ -413,7 +415,7 @@ Variants {
             var gone = {}
             keys.forEach(function (k) { gone[k] = true })
             notifList = notifList.filter(function (n) { return !gone[n.key] })
-            notifReadProc.command = ["python3", "/home/nico/.config/quickshell/default/scripts/notifs.py", "read"].concat(keys)
+            notifReadProc.command = ["python3", root.scriptsDir + "/notifs.py", "read"].concat(keys)
             notifReadProc.running = true
         }
 
@@ -477,7 +479,7 @@ Variants {
 
         Process {
             id: volumeProc
-            command: ["bash", "/home/nico/.config/quickshell/default/scripts/volume.sh"]
+            command: ["bash", root.scriptsDir + "/volume.sh"]
             stdout: StdioCollector { id: volumeCollector }
             onExited: {
                 var parts = volumeCollector.text.trim().split("|")

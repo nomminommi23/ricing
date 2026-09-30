@@ -25,7 +25,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Bottom
 
     readonly property bool isGerman: Qt.locale().name.startsWith("de")
-    readonly property string themeDir: "/home/nico/.config/theme"
+    readonly property string themeDir: Quickshell.env("HOME") + "/.config/theme"
 
     property bool wallpaperOpen: false
     property bool colorsOpen: false

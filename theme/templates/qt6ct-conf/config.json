@@ -1,0 +1,4 @@
+{
+    "template": "qt6ct.conf",
+    "destination": "~/.config/qt6ct/qt6ct.conf"
+}
