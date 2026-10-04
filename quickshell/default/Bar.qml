@@ -278,12 +278,6 @@ Variants {
         property string gpuMemTotal: "NA"
         readonly property bool gpuAvailable: gpuUtil !== "NA"
 
-        // ---- mouse battery (Razer, via openrazer - no-op if not installed/connected) ----
-        property bool mouseBatteryAvailable: false
-        property int mouseBatteryPct: 0
-        property bool mouseBatteryCharging: false
-        readonly property bool mouseBatteryLow: mouseBatteryAvailable && !mouseBatteryCharging && mouseBatteryPct <= 20
-
         // ---- network ----
         property string connType: ""
         property string connName: ""
@@ -356,30 +350,6 @@ Variants {
 
         Timer { interval: 100; running: true; repeat: false; onTriggered: statsProc.running = true }
         Timer { interval: 1000; running: true; repeat: true; onTriggered: statsProc.running = true }
-
-        Process {
-            id: mouseBatteryProc
-            command: ["python3", root.scriptsDir + "/mouse_battery.py"]
-            stdout: StdioCollector { id: mouseBatteryCollector }
-            onExited: {
-                try {
-                    var d = JSON.parse(mouseBatteryCollector.text)
-                    bar.mouseBatteryAvailable = !!d.available
-                    if (d.available) {
-                        bar.mouseBatteryPct = d.pct
-                        bar.mouseBatteryCharging = !!d.charging
-                    }
-                } catch (e) {
-                    bar.mouseBatteryAvailable = false
-                }
-            }
-        }
-
-        // 60s, not 1s like statsProc: querying openrazer's daemon over D-Bus is much
-        // heavier than reading /proc, and a mouse's battery doesn't change fast enough
-        // to need more than that anyway.
-        Timer { interval: 200; running: true; repeat: false; onTriggered: mouseBatteryProc.running = true }
-        Timer { interval: 60000; running: true; repeat: true; onTriggered: mouseBatteryProc.running = true }
 
         Component {
             id: bellComp
@@ -1256,40 +1226,6 @@ Variants {
                 }
             }
 
-            Rectangle {
-                id: mouseBatteryPill
-                visible: !bar.taskbarMode && bar.mouseBatteryAvailable
-                Layout.preferredWidth: mouseBatteryRow.implicitWidth + 14
-                Layout.preferredHeight: 26
-                radius: 10
-                color: bar.hovered === "mouse" ? root.palette.accent : root.argb(root.palette.pill_color, root.pillOpacity)
-
-                Row {
-                    id: mouseBatteryRow
-                    anchors.centerIn: parent
-                    spacing: 4
-                    Text {
-                        text: "󰍽"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.hovered === "mouse" ? "#0f111a" : (bar.mouseBatteryLow ? root.palette.color1 : root.palette.color2)
-                    }
-                    Text {
-                        text: bar.mouseBatteryPct + "%" + (bar.mouseBatteryCharging ? "" : "")
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.hovered === "mouse" ? "#0f111a" : root.palette.foreground
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: bar.hovered = "mouse"
-                    onExited: bar.hovered = ""
-                }
-            }
-
             Loader {
                 visible: bar.taskbarMode
                 Layout.preferredWidth: visible ? 32 : 0
@@ -1375,7 +1311,11 @@ Variants {
         // ================= POPUPS =================
 
         LazyLoader {
-            active: bar.hovered !== "" && bar.hovered !== "net"
+            // Allowlist, not bar.hovered !== "" && bar.hovered !== "net": this tooltip
+            // only has content for these five, so anything else hovered (help, mouse
+            // battery, ...) showed it anyway - empty, since nothing here renders for
+            // them, stacked right on top of their own dedicated tooltip if they have one.
+            active: ["cpu", "mem", "disk", "gpu", "vol"].includes(bar.hovered)
 
             PanelWindow {
                 screen: bar.modelData

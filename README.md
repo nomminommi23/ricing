@@ -21,7 +21,7 @@ bash /tmp/install.sh --deps   # same, plus installs dependencies via pacman (Arc
 | Piece | Tool |
 |---|---|
 | Compositor | [Hyprland](https://hyprland.org/) |
-| Login screen | SDDM — stock theme, not customized/tracked here (config lives under `/etc`, outside this repo's scope) |
+| Login screen | SDDM — custom palette-driven theme ([`sddm/aether-rice/`](sddm/aether-rice/)), see Theming below |
 | Bar | Custom [Quickshell](https://quickshell.org/) shell (`quickshell/default/`) — replaces Waybar entirely |
 | Launcher | Rofi |
 | Terminal | Kitty |
@@ -30,6 +30,8 @@ bash /tmp/install.sh --deps   # same, plus installs dependencies via pacman (Arc
 | Theming | [`theme/`](theme/) — homegrown palette-driven theme generator (`render.py`), controlled from the Quickshell desktop widget or the CLI |
 | Qt/GTK theming | qt6ct, nwg-look |
 | File manager | Thunar (GTK3; themed via the same pipeline — see Theming below). Was Dolphin, dropped over an [unfixed upstream bug](https://discuss.kde.org/t/dolphin-how-can-i-override-the-new-highlight-color/38640) forcing Breeze's stock blue for selection outside a full Plasma session |
+| Mouse control | Standalone Quickshell widget ([`MouseWidget.qml`](quickshell/default/MouseWidget.qml)) — battery, DPI, poll rate, idle timeout, low-battery threshold, via [OpenRazer](https://openrazer.github.io/), optional/hardware-specific — see Peripheral widgets below |
+| RGB control | Standalone Quickshell widget ([`RGBWidget.qml`](quickshell/default/RGBWidget.qml)) — RAM/GPU/mainboard RGB, synced to the palette's accent in one click, via [OpenRGB](https://openrgb.org/), optional/hardware-specific — see Peripheral widgets below |
 
 ## The bar
 
@@ -114,6 +116,39 @@ A few icon colors in the bar are deliberately hardcoded rather than bound to the
 
 It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around.
 
+## Peripheral widgets
+
+Two more standalone Quickshell windows (same pattern as the theme widget: independent of `Bar.qml`, pinned to the top-left corner, Bottom wlr layer) control RGB/sensor peripherals over their own daemons instead of the palette. Both are entirely optional and hardware-specific — each hides itself (`visible: available`) if its daemon isn't reachable, so they're a no-op on a machine without this exact hardware, not an error.
+
+**Mouse** ([`MouseWidget.qml`](quickshell/default/MouseWidget.qml) + [`scripts/mouse.py`](quickshell/default/scripts/mouse.py)) — battery, DPI (the device's own 5 stored stages), poll rate, wireless idle timeout, and low-battery warning threshold, for a Razer Viper V3 Pro over [OpenRazer](https://openrazer.github.io/). One-time setup, needs a real reboot after (not just logout/login — this machine's `sddm.conf` has `ReuseSession=true`, which reattaches to the old session instead of starting a fresh one, so group membership never actually refreshes without one):
+
+```bash
+sudo pacman -S openrazer-daemon openrazer-driver-dkms python-openrazer
+sudo gpasswd -a "$USER" openrazer
+# then reboot
+```
+
+Found the hard way:
+- **The mouse's USB product ID is different over its cable vs. its wireless dongle** (`1532:00C0` vs `1532:00C1` here) — openrazer-daemon only scans for devices at its *own* startup, not on hotplug, so switching cable↔dongle while it's already running goes completely unnoticed. `mouse.py` detects an empty device list and restarts `openrazer-daemon` once via `systemctl --user restart` before giving up, which picks the switch up within one call instead of needing a manual restart.
+- **The low-battery threshold is hardware-capped at 25%**, confirmed by testing every value 0-100 against the real device — asking for more just silently clamps to 25, undocumented anywhere. The widget's slider range reflects that cap instead of pretending 0-100 works.
+- **The DPI reset to a generic default (1800) the first time OpenRazer's daemon ever bound to the device**, overwriting whatever had been configured before (e.g. via Razer Synapse on a Windows dual-boot) — `restore_persistence` defaults to `false`, so the daemon doesn't restore anything on its own, it just starts the device off wherever its driver-level init leaves it. The device's 5 *stored* DPI stages survived this untouched, which is how the original value got found again (the stage list's reported "active index" still pointed at it, even though the single live `.dpi` reading didn't match any of them).
+- **A confirmed, still-open upstream SDDM bug** affects this mouse too, incidentally: see the keyboard-layout bullet in the SDDM section above — unrelated hardware, same "backend doesn't apply state until first input" shape.
+
+Unrelated to OpenRazer, but found while setting it up: `hyprland.lua`'s `input` block never set `accel_profile`, so Hyprland/libinput were using their own default adaptive (accelerated) curve the whole time rather than the flat/linear response a gaming mouse is normally run with - only actually noticeable once the DPI reset above changed how it felt. Now `accel_profile = "flat"`.
+
+**RGB** ([`RGBWidget.qml`](quickshell/default/RGBWidget.qml) + [`scripts/rgb.py`](quickshell/default/scripts/rgb.py)) — per-device mode (Direct/Rainbow/Breathing/…), color, speed, and brightness (wherever the active mode supports them) for RAM (Corsair Vengeance RGB Pro ×2, shown and controlled as *one* card since they're the same model - `rgb.py`'s commands all accept a comma-separated list of device IDs), GPU (Gigabyte RTX 3060 Gaming OC), and mainboard (ASUS ROG STRIX B550-F, Aura) — plus a "Sync all to accent" button that's the actual point of having this at all. All three go through [OpenRGB](https://openrgb.org/)'s SDK server, autostarted headless (`openrgb --server`, in `hyprland.lua`) so the widget's queries are fast — the plain CLI re-detects all hardware (~5s) on every single invocation, which is too slow to poll.
+
+```bash
+sudo pacman -S openrgb i2c-tools
+sudo modprobe i2c-dev
+echo i2c-dev | sudo tee /etc/modules-load.d/i2c-dev.conf   # persist across reboots
+yay -S python-openrgb   # AUR - the SDK client library rgb.py imports
+```
+
+Found the hard way:
+- **This exact server build (`openrgb` 1.0-2, Arch `extra`) doesn't handle `openrgb-python`'s default SDK protocol version (4) correctly** — the plugin-list request it sends during connection setup just hangs until the client's socket times out. `rgb.py` connects with `protocol_version=3` explicitly, which skips that request and works.
+- **Setting a color doesn't reliably switch the device to Direct mode first** — a device left on a cycling mode (Rainbow Wave, Spectrum Cycle, …) can keep animating straight through a `set_color()` call, so the static color never actually sticks despite the API call succeeding and even reporting back the "right" state immediately after. Intermittent, not consistently reproducible - looks like SMBus/i2c timing flakiness, worst on the GPU specifically (its own NVIDIA i2c adapter, not the mainboard/RAM's shared SMBus one). `rgb.py`'s `set_color()` explicitly forces Direct mode first, waits, then re-reads the live state and retries once if it doesn't match what was asked for.
+
 ## Hotkeys
 
 `Mod` = <kbd>Super</kbd>.
@@ -182,7 +217,7 @@ It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around
 
 ## Requirements
 
-Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`; an animated GIF wallpaper additionally needs `awww` (optional - only touched when the active wallpaper is a GIF).
+Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`; an animated GIF wallpaper additionally needs `awww` (optional - only touched when the active wallpaper is a GIF). The mouse and RGB widgets are both fully optional, hardware-specific, and need their own one-time setup beyond a package install — see Peripheral widgets above, not covered by `install.sh --deps`.
 
 This is an Arch + Hyprland rice through and through, so the list below is Arch-authoritative — everything in the pacman column is a plain `extra`/`multilib` package on current Arch, nothing needs an AUR helper. `apt`/`dnf` columns are best-effort: Hyprland and its ecosystem (Hyprland itself, `quickshell`, `hyprcursor`) move fast and generally aren't in Debian/Ubuntu's or Fedora's stock repos, so those need a third-party repo (Fedora: the [`solopasha/hyprland` COPR](https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/) covers most of it) or building from source — a blank cell means "no known repo package, check the project's own install docs". Snap has essentially no coverage here (this is all system/Wayland-level tooling, not the kind of app snap packages); where an optional app happens to have one, it's noted below the table instead.
 
@@ -219,6 +254,10 @@ This is an Arch + Hyprland rice through and through, so the list below is Arch-a
 | `materia-gtk-theme` | GTK theme | `materia-gtk-theme` | `materia-gtk-theme` | — (build) |
 | `papirus-icon-theme` | Icon theme | `papirus-icon-theme` | `papirus-icon-theme` | `papirus-icon-theme` |
 | `ttf-jetbrains-mono-nerd` | Bar/UI font | `ttf-jetbrains-mono-nerd` | — (manual install from [Nerd Fonts](https://www.nerdfonts.com/)) | — (manual install) |
+| `openrazer-daemon` + `openrazer-driver-dkms` | Mouse widget — optional, hardware-specific, needs more setup than just this (see Peripheral widgets above) | `openrazer-daemon openrazer-driver-dkms` | build from [source](https://openrazer.github.io/) | build from [source](https://openrazer.github.io/) |
+| `python-openrazer` | Python bindings `scripts/mouse.py` imports | `python-openrazer` | build from [source](https://openrazer.github.io/) | build from [source](https://openrazer.github.io/) |
+| `openrgb` + `i2c-tools` | RGB widget — optional, hardware-specific, needs more setup than just this (see Peripheral widgets above) | `openrgb i2c-tools` | build from [source](https://openrgb.org/) | build from [source](https://openrgb.org/) |
+| `python-openrgb` | Python bindings `scripts/rgb.py` imports | AUR (`yay -S python-openrgb`) | `pip install openrgb-python` | `pip install openrgb-python` |
 
 ```bash
 # Arch (pacman - every package below is in the extra/multilib repos already
@@ -263,6 +302,8 @@ This config's software requirements (above) run on anything; a few specific sett
 | Monitors | 27" 2560×1440@144Hz (`DP-1`, desc `HKC OVERSEAS LIMITED 27E6QC`) + 23" 1680×1050@60Hz (`HDMI-A-1`, desc `LG Electronics L226W`) | `hl.monitor({...})` blocks and every `hl.workspace_rule({...})` in `hyprland.lua` match monitors by their exact EDID `desc:` string (find yours with `hyprctl monitors`) | With different monitors (or even the same models in a different plug order) these rules simply won't match anything — Hyprland falls back to its own defaults, so resolution/refresh-rate/position and the fixed per-monitor workspace assignments (1–4/9 on the main monitor, 5–8 on the second) silently stop applying. Update the `desc:` strings and positions to match `hyprctl monitors` output on the new setup |
 | Keyboard layout | German (`de`) | `kb_layout = "de"` in `hyprland.lua` | Not a crash, just the wrong layout — change it to your own (`kb_layout = "us"`, etc.) |
 | Motherboard / RAM / storage | ASUS ROG STRIX B550-F, 32 GB, NVMe SSDs (+ a USB stick) | Nothing — the disk pill enumerates real mounted filesystems and their device names live, nothing about specific drives is hardcoded | No changes needed regardless of storage layout |
+| Mouse | Razer Viper V3 Pro | `MouseWidget.qml`/`scripts/mouse.py` go through OpenRazer, which only knows this exact device | A different (or no) Razer mouse: the widget just hides itself (`available` goes false) - a non-Razer mouse has no OpenRazer support at all, Razer-but-different-model generally works as long as OpenRazer lists it |
+| RAM / GPU / mainboard RGB | Corsair Vengeance RGB Pro ×2, Gigabyte RTX 3060 Gaming OC, ASUS Aura | `RGBWidget.qml`/`scripts/rgb.py` show/control exactly whatever OpenRGB's SDK server detects, nothing about specific devices is hardcoded | Different RGB hardware: same widget, same code, whatever OpenRGB finds shows up instead - hides itself entirely if OpenRGB can't reach anything (no `--server` running, nothing it supports installed) |
 
 None of this stops the config from *loading* on other hardware — Hyprland just silently falls back to sane defaults for anything that doesn't match, and the bar degrades gracefully (missing pills, `NA` values) rather than erroring. But if a monitor is misplaced/wrong-resolution, workspaces land on the wrong screen, or the GPU/CPU pill acts oddly, this table is where to look first before assuming something's broken.
 
@@ -270,7 +311,8 @@ None of this stops the config from *loading* on other hardware — Hyprland just
 
 ```
 hypr/        Hyprland config (hyprland.lua is active, .conf kept for reference) + wallpaper.png + cursor/ (cursor theme source)
-quickshell/  The bar (Bar.qml + helper QML components + scripts/) + ThemeWidget.qml (theming widget)
+quickshell/  The bar (Bar.qml + helper QML components + scripts/) + ThemeWidget.qml (theming
+             widget) + MouseWidget.qml/RGBWidget.qml (peripheral widgets, see above)
 rofi/        Launcher config + theme
 kitty/       Terminal config + theme
 mako/        Notification daemon config (colors.ini generated by theme/render.py)

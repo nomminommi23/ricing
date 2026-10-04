@@ -52,9 +52,9 @@ button:hover label {
    looks up these named colors directly instead (gtk_style_context_lookup_color).
    Redefining them is what actually recolors the selection there; .view:selected/
    *:selected below do nothing for it, only for widgets that DO use normal matching. */
-@define-color theme_selected_bg_color alpha(#7aa2f7, 0.5);
+@define-color theme_selected_bg_color alpha(#f7768e, 0.5);
 @define-color theme_selected_fg_color #c0caf5;
-@define-color theme_unfocused_selected_bg_color alpha(#7aa2f7, 0.5);
+@define-color theme_unfocused_selected_bg_color alpha(#f7768e, 0.5);
 @define-color theme_unfocused_selected_fg_color #c0caf5;
 
 /* File-manager icon/list view (Thunar's grid, Materia's rounded selection pill) */
@@ -68,6 +68,6 @@ button:hover label {
 }
 
 *:selected {
-    background-color: alpha(#7aa2f7, 0.5);
+    background-color: alpha(#f7768e, 0.5);
     color: #c0caf5;
 }

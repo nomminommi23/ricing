@@ -617,6 +617,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("quickshell -c default")
     hl.exec_cmd("mako")
     hl.exec_cmd("nm-applet --indicator")
+    -- --server alone: headless SDK server, no GUI/tray window. Keeps RAM/GPU/mainboard
+    -- RGB devices detected in memory so RGBWidget's queries are fast - the plain CLI
+    -- re-detects all hardware (~5s) on every single invocation.
+    hl.exec_cmd("openrgb --server")
     hl.exec_cmd("python3 ~/.config/theme/wallpaper.py start")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")

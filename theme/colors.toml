@@ -38,7 +38,7 @@ popup_color = "#1a1b26"
 
 # GTK file-selection highlight (Thunar's grid, etc.) - decoupled from `accent` so it can
 # be set independently, defaults to matching it.
-gtk_selection_color = "#7aa2f7"
+gtk_selection_color = "#f7768e"
 
 # Opacity (0-1) for the bar itself, its pills, its popups, the terminal background, and
 # the GTK file-selection highlight above

@@ -5,4 +5,6 @@ import Quickshell
 ShellRoot {
     Bar {}
     ThemeWidget {}
+    MouseWidget {}
+    RGBWidget {}
 }
