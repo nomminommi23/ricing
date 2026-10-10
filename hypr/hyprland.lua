@@ -634,3 +634,13 @@ hl.on("config.reloaded", function()
     hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-size 24")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme \"AetherRice\"")
 end)
+
+
+-- deadlocked_overlay no_blur windowrule
+hl.window_rule({
+    match = {
+        title = "^(deadlocked_overlay)$",
+    },
+    no_blur = true,
+    monitor = "desc:HKC OVERSEAS LIMITED 27E6QC 0000000000001",
+})
