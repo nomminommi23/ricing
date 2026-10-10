@@ -32,7 +32,9 @@ DEFAULT_PALETTE = {
     "color8": "#565f89", "color9": "#f7768e", "color10": "#a6e3a1", "color11": "#f9e2af",
     "color12": "#7aa2f7", "color13": "#cba6f7", "color14": "#89dceb", "color15": "#ffffff",
     "bar_color": "#12131b", "pill_color": "#1a1b26", "popup_color": "#1a1b26",
+    "gtk_selection_color": "#1793d1",
     "bar_opacity": 0.18, "pill_opacity": 0.85, "popup_opacity": 0.90, "terminal_opacity": 0.85,
+    "gtk_selection_opacity": 0.5,
 }
 
 
