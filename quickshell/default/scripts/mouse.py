@@ -43,15 +43,22 @@ def get_device():
 
 
 def status_json(d):
-    stage_index, stages = d.dpi_stages
+    _, stages = d.dpi_stages
+    current_dpi = d.dpi[0]
+    stage_values = [s[0] for s in stages]
+    # d.dpi_stages' own active-stage index only updates when a stage is cycled via the
+    # mouse's physical button, not when set-dpi-stage below sets d.dpi directly - so it
+    # goes stale and no longer matches the actual current DPI. Derive it from the real
+    # current DPI instead of trusting that index.
+    stage_index = stage_values.index(current_dpi) if current_dpi in stage_values else -1
     return {
         "available": True,
         "name": d.name,
         "pct": d.battery_level,
         "charging": d.is_charging,
-        "dpi": d.dpi[0],
+        "dpi": current_dpi,
         "dpi_stage": stage_index,
-        "dpi_stages": [s[0] for s in stages],
+        "dpi_stages": stage_values,
         "poll_rate": d.poll_rate,
         "supported_poll_rates": d.supported_poll_rates,
         "idle_time": d.get_idle_time(),
