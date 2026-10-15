@@ -1321,7 +1321,7 @@ Variants {
                 screen: bar.modelData
                 anchors { top: true; right: true }
                 margins { top: 34; right: bar.width - (rightRow.x + statsPopupAnchor.x + statsPopupAnchor.width) }
-                implicitWidth: (bar.hovered === "cpu" && bar.perCore.length > 0) ? 320 : (bar.hovered === "vol" ? 300 : (bar.hovered === "disk" ? 300 : 220))
+                implicitWidth: (bar.hovered === "cpu" && bar.perCore.length > 0) ? 320 : (bar.hovered === "vol" ? 300 : (bar.hovered === "disk" ? 340 : 220))
                 implicitHeight: tooltipCol.implicitHeight + 20
                 color: "transparent"
                 WlrLayershell.namespace: "stats-tooltip"
@@ -1428,12 +1428,16 @@ Variants {
                                         text: modelData.pct + "%" + "  ·  " + (root.isGerman ? "Belegt " : "Used ") + modelData.used.toFixed(0) + " / " + modelData.total.toFixed(0) + " GiB" + "  ·  " + (root.isGerman ? "Frei " : "Free ") + modelData.avail.toFixed(0) + " GiB"
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 11
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
                                         color: root.palette.color8
                                     }
                                     Text {
                                         text: "R: " + root.fmtRate(modelData.readKBps) + "   W: " + root.fmtRate(modelData.writeKBps)
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: 11
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
                                         color: root.palette.color8
                                     }
                                 }
