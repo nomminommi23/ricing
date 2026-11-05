@@ -30,6 +30,11 @@
 # double this repo's size with identical bytes.
 /sddm/aether-rice/wallpaper.png
 
+# A re-encoded, size-capped copy of hypr/wallpaper.png for hyprlock's background,
+# refreshed by render.py's render_lock_wallpaper() - regenerated from the tracked
+# wallpaper on every render, no reason to track the derived bytes too.
+/hypr/lockscreen-wallpaper.jpg
+
 # Python bytecode cache (theme/presets.py imports theme/render.py as a module)
 __pycache__/
 

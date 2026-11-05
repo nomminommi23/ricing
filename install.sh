@@ -82,10 +82,10 @@ if [ "$INSTALL_DEPS" = 1 ]; then
         echo "Installing dependencies via pacman (see README.md for apt/dnf equivalents)..."
         sudo pacman -S --needed hyprland sddm xdg-desktop-portal-hyprland quickshell kitty rofi \
             mako thunar thunar-volman thunar-archive-plugin tumbler gvfs gvfs-mtp gvfs-smb \
-            xarchiver swaybg awww hyprcursor librsvg grim slurp wl-clipboard cliphist zenity \
-            networkmanager network-manager-applet wireplumber pavucontrol blueman brightnessctl \
-            playerctl lm_sensors nvidia-utils curl python qt6ct nwg-look materia-gtk-theme \
-            papirus-icon-theme ttf-jetbrains-mono-nerd
+            xarchiver swaybg awww hyprlock ffmpeg hyprcursor librsvg grim slurp wl-clipboard \
+            cliphist zenity networkmanager network-manager-applet wireplumber pavucontrol \
+            blueman brightnessctl playerctl lm_sensors nvidia-utils curl python qt6ct nwg-look \
+            materia-gtk-theme papirus-icon-theme ttf-jetbrains-mono-nerd
     else
         echo "--deps only knows pacman (Arch). See the Requirements section in README.md for apt/dnf." >&2
     fi

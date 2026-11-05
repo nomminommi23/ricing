@@ -29,6 +29,7 @@ TEMPLATES = os.path.join(HERE, "templates")
 SDDM_THEME_SRC = os.path.expanduser("~/.config/sddm/aether-rice")
 SDDM_THEME_DEST = "/usr/share/sddm/themes/aether-rice"
 WALLPAPER = os.path.expanduser("~/.config/hypr/wallpaper.png")
+LOCK_WALLPAPER = os.path.expanduser("~/.config/hypr/lockscreen-wallpaper.jpg")
 
 PLACEHOLDER = re.compile(r"\{([a-zA-Z0-9_]+)(?:\.([a-zA-Z0-9_]+))?(?::([^}]+))?\}")
 
@@ -68,6 +69,12 @@ def substitute(text, colors):
         if fmt == "rgb":
             r, g, b = hex_to_rgb(value)
             return f"{r},{g},{b}"
+        if fmt == "hexa":
+            # hyprlock's hyprlang-based config only reliably parses the hex color form
+            # (rgba(RRGGBBAA), no commas, alpha as a hex byte) - the CSS-decimal .rgba
+            # above silently produces the wrong syntax there.
+            alpha_byte = format(round(max(0.0, min(1.0, float(arg))) * 255), "02x")
+            return value.lstrip("#") + alpha_byte
         sys.exit(f"render.py: unknown placeholder format '.{fmt}' in template")
     return PLACEHOLDER.sub(repl, text)
 
@@ -87,6 +94,27 @@ def render_all(colors):
     icon_theme.render(colors)
     print(f"rendered gtk3-icons -> {icon_theme.DEST_THEME}")
     sync_sddm_theme()
+    render_lock_wallpaper()
+
+
+def render_lock_wallpaper():
+    """Re-encodes the active wallpaper into a small, guaranteed-real JPEG for hyprlock.
+
+    hyprlock's own background path loader doesn't survive everything the wallpaper
+    picker allows here: a GIF saved under a .png name (ffmpeg content-sniffs the real
+    format regardless of the name, confirmed directly), or a multi-thousand-pixel
+    original. -frames:v 1 takes a single frame from either a still image or a GIF, and
+    the scale filter caps the output size instead of handing hyprlock whatever the
+    original happens to be.
+    """
+    if not os.path.isfile(WALLPAPER):
+        return
+    subprocess.run([
+        "ffmpeg", "-y", "-i", WALLPAPER, "-frames:v", "1",
+        "-vf", "scale='min(2560,iw)':'min(1440,ih)':force_original_aspect_ratio=decrease",
+        LOCK_WALLPAPER,
+    ], check=False, capture_output=True, timeout=15)
+    print(f"rendered lockscreen-wallpaper -> {LOCK_WALLPAPER}")
 
 
 def sync_sddm_theme():

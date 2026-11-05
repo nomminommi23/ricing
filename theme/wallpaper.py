@@ -105,6 +105,7 @@ def restart_wallpaper_daemon():
     render.sync_sddm_theme()  # wallpaper.py never calls render.py, so this doesn't
                               # happen automatically otherwise - the login screen's
                               # background would just keep showing whatever it last was.
+    render.render_lock_wallpaper()  # same reasoning, for hyprlock's background
 
 
 def cmd_list():

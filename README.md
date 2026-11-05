@@ -28,6 +28,7 @@ bash /tmp/install.sh --deps   # same, plus installs dependencies via pacman (Arc
 | Cursor | Custom Arch-logo cursor set (pointer, text, resize, wait spinner, …) in the rice palette — artwork in [`shapes.py`](hypr/cursor/shapes.py), [`build.py`](hypr/cursor/build.py) installs a Hyprcursor and an XCursor theme to `~/.local/share/icons/ArchLogo` |
 | Notifications | [mako](mako/) — themed from the palette, same as the rest |
 | Theming | [`theme/`](theme/) — homegrown palette-driven theme generator (`render.py`), controlled from the Quickshell desktop widget or the CLI |
+| Lock screen | [hyprlock](https://github.com/hyprwm/hyprlock) — same palette/wallpaper pipeline as everything else, see Lock screen below |
 | Qt/GTK theming | qt6ct, nwg-look |
 | File manager | Thunar (GTK3; themed via the same pipeline — see Theming below). Was Dolphin, dropped over an [unfixed upstream bug](https://discuss.kde.org/t/dolphin-how-can-i-override-the-new-highlight-color/38640) forcing Breeze's stock blue for selection outside a full Plasma session |
 | Mouse control | Standalone Quickshell widget ([`MouseWidget.qml`](quickshell/default/MouseWidget.qml)) — battery, DPI, poll rate, idle timeout, low-battery threshold, via [OpenRazer](https://openrazer.github.io/), optional/hardware-specific — see Peripheral widgets below |
@@ -116,6 +117,15 @@ A few icon colors in the bar are deliberately hardcoded rather than bound to the
 
 It's a blue theme (`#1793d1` accent on a dark `#1a1b26` background) built around the stock default Hyprland wallpaper — the anime girl waiting at the train stop with the glowing blue Hyprland-logo cats. Every accent color across the bar, Rofi, Kitty, and the rest was picked to match that wallpaper's palette rather than the other way around.
 
+## Lock screen
+
+[hyprlock](https://github.com/hyprwm/hyprlock) is themed through the same template pipeline as everything else: [`theme/templates/hyprlock/`](theme/templates/hyprlock/) renders `~/.config/hypr/hyprlock.conf` from the active palette (clock, date, username, and password-field colors). Bound to `Mod + L` (`hypr/hyprland.lua`), guarded with a `pgrep -x hyprlock` check so pressing it again while already locked doesn't spawn a second instance on top of the first.
+
+- **Background** is a dedicated, re-encoded copy of the wallpaper, not the live wallpaper file directly — `render.render_lock_wallpaper()` runs `ffmpeg` over it on every render and every wallpaper change, taking a single frame and capping its size, to `~/.config/hypr/lockscreen-wallpaper.jpg` (gitignored, regenerated from the tracked wallpaper rather than committed itself). This sidesteps two things hyprlock's own background loader doesn't handle well: an animated GIF saved under this rice's `.png`-named active wallpaper file (`ffmpeg` content-sniffs the real format regardless of the name), and originals far larger than a lock screen needs (one of this rice's own wallpapers is 8K).
+- **Colors** use a new `.hexa:ALPHA` template placeholder, not the existing `.rgba:ALPHA` every other app's templates use: hyprlock's config language only parses hex color forms (`rgb(RRGGBB)` / `rgba(RRGGBBAA)`, alpha as a hex byte appended, no commas) — the CSS-decimal `rgba(r, g, b, ALPHA)` string `.rgba` produces for everything else is silently invalid here.
+- **Animations are disabled** (`animations { enabled = false }`) — on this GPU/driver combination, hyprlock's fade-in timer touches a screencopy-related resource that fails to initialize at startup regardless of what background is actually configured, crashing the process right after it logs "Starting fade in". Disabling the animation is what stops it; a static background path alone (as opposed to a live `screenshot` background) is not enough on its own.
+- A few hyprlock config keys only exist as CLI flags in this version, not config-file options (`--grace`, `--no-fade-in`) — writing them under `general { }` instead just logs a non-fatal "config option does not exist" warning and ignores them. Check `hyprlock --help` and its own shipped sample config (`/usr/share/hypr/hyprlock.conf`) against any config found online, this file included.
+
 ## Peripheral widgets
 
 Two more standalone Quickshell windows (same pattern as the theme widget: independent of `Bar.qml`, pinned to the top-left corner, Bottom wlr layer) control RGB/sensor peripherals over their own daemons instead of the palette. Both are entirely optional and hardware-specific — each hides itself (`visible: available`) if its daemon isn't reachable, so they're a no-op on a machine without this exact hardware, not an error.
@@ -181,6 +191,7 @@ Notable quirks:
 |---|---|
 | `Mod + Q` | Close active window |
 | `Mod + Shift + E` | Exit Hyprland |
+| `Mod + L` | Lock screen |
 | `Mod + F` | Toggle fullscreen |
 | `Mod + V` | Toggle floating |
 | `Mod + P` | Toggle pseudotiling |
@@ -217,9 +228,9 @@ Notable quirks:
 
 ## Requirements
 
-Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`; an animated GIF wallpaper additionally needs `awww` (optional - only touched when the active wallpaper is a GIF). The mouse and RGB widgets are both fully optional, hardware-specific, and need their own one-time setup beyond a package install — see Peripheral widgets above, not covered by `install.sh --deps`.
+Beyond Hyprland itself, the bar's scripts expect: `quickshell`, `nmcli`, `wpctl`, `nvidia-smi` (GPU stats — no-ops gracefully if absent), `sensors` (lm_sensors, for CPU temperature), `python3`, and `curl` (for the network widget's public-IP lookup). The theme widget's wallpaper picker additionally needs `zenity` (native file picker) and `swaybg`; an animated GIF wallpaper additionally needs `awww` (optional - only touched when the active wallpaper is a GIF). The mouse and RGB widgets are both fully optional, hardware-specific, and need their own one-time setup beyond a package install — see Peripheral widgets above, not covered by `install.sh --deps`. The lock screen needs `hyprlock` and `ffmpeg` (the latter to re-encode the wallpaper for it).
 
-This is an Arch + Hyprland rice through and through, so the list below is Arch-authoritative — everything in the pacman column is a plain `extra`/`multilib` package on current Arch, nothing needs an AUR helper. `apt`/`dnf` columns are best-effort: Hyprland and its ecosystem (Hyprland itself, `quickshell`, `hyprcursor`) move fast and generally aren't in Debian/Ubuntu's or Fedora's stock repos, so those need a third-party repo (Fedora: the [`solopasha/hyprland` COPR](https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/) covers most of it) or building from source — a blank cell means "no known repo package, check the project's own install docs". Snap has essentially no coverage here (this is all system/Wayland-level tooling, not the kind of app snap packages); where an optional app happens to have one, it's noted below the table instead.
+This is an Arch + Hyprland rice through and through, so the list below is Arch-authoritative — everything in the pacman column is a plain `extra`/`multilib` package on current Arch, nothing needs an AUR helper. `apt`/`dnf` columns are best-effort: Hyprland and its ecosystem (Hyprland itself, `quickshell`, `hyprcursor`, `hyprlock`) move fast and generally aren't in Debian/Ubuntu's or Fedora's stock repos, so those need a third-party repo (Fedora: the [`solopasha/hyprland` COPR](https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/) covers most of it) or building from source — a blank cell means "no known repo package, check the project's own install docs". Snap has essentially no coverage here (this is all system/Wayland-level tooling, not the kind of app snap packages); where an optional app happens to have one, it's noted below the table instead.
 
 | Program | What it's for | pacman | apt | dnf |
 |---|---|---|---|---|
@@ -233,6 +244,8 @@ This is an Arch + Hyprland rice through and through, so the list below is Arch-a
 | `thunar` (+ `thunar-volman`, `thunar-archive-plugin`, `tumbler`, `gvfs`) | File manager, mounting, archives, thumbnails | `thunar thunar-volman thunar-archive-plugin tumbler gvfs` | `thunar thunar-volman thunar-archive-plugin tumbler gvfs` | `thunar thunar-volman thunar-archive-plugin tumbler gvfs` |
 | `swaybg` | Wallpaper (static) | `swaybg` | `swaybg` | `swaybg` |
 | `awww` | Wallpaper (animated GIF only, optional) | `awww` | build from [source](https://codeberg.org/LGFae/awww) | build from [source](https://codeberg.org/LGFae/awww) |
+| `hyprlock` | Lock screen | `hyprlock` | build from [source](https://github.com/hyprwm/hyprlock) | build from [source](https://github.com/hyprwm/hyprlock) |
+| `ffmpeg` | Re-encodes the wallpaper for the lock screen's background | `ffmpeg` | `ffmpeg` | `ffmpeg` (RPM Fusion) |
 | `hyprcursor` (`hyprcursor-util`) | Cursor theme build | `hyprcursor` | — | `hyprcursor` (COPR) |
 | `librsvg` (`rsvg-convert`) | Cursor theme build | `librsvg` | `librsvg2-bin` | `librsvg2-tools` |
 | `grim` + `slurp` | Screenshots | `grim slurp` | `grim slurp` | `grim slurp` |
@@ -270,19 +283,20 @@ sudo pacman -S --needed hyprland sddm xdg-desktop-portal-hyprland quickshell kit
     papirus-icon-theme ttf-jetbrains-mono-nerd
 
 # Debian/Ubuntu (apt) - covers everything except Hyprland/quickshell/hyprcursor/
-# cliphist, which need a third-party repo or a source build on this base
+# cliphist/hyprlock, which need a third-party repo or a source build on this base
 sudo apt install kitty rofi mako-notifier thunar thunar-volman thunar-archive-plugin \
-    tumbler gvfs xarchiver swaybg librsvg2-bin grim slurp \
+    tumbler gvfs xarchiver swaybg librsvg2-bin grim slurp ffmpeg \
     wl-clipboard zenity network-manager network-manager-gnome wireplumber pavucontrol \
     blueman brightnessctl playerctl lm-sensors nvidia-utils-535 curl python3 \
     qt6ct materia-gtk-theme papirus-icon-theme sddm
 
 # Fedora (dnf) - add the solopasha/hyprland COPR first for Hyprland/hyprcursor/
-# xdg-desktop-portal-hyprland; quickshell/cliphist/nwg-look/materia-gtk-theme still need a build
+# xdg-desktop-portal-hyprland; quickshell/cliphist/nwg-look/materia-gtk-theme/hyprlock
+# still need a build. ffmpeg needs the RPM Fusion free repo (not in Fedora's base repos)
 sudo dnf copr enable solopasha/hyprland
 sudo dnf install hyprland xdg-desktop-portal-hyprland hyprcursor kitty rofi mako thunar \
     thunar-volman thunar-archive-plugin tumbler gvfs gvfs-mtp gvfs-smb xarchiver \
-    swaybg librsvg2-tools grim slurp wl-clipboard zenity NetworkManager \
+    swaybg librsvg2-tools grim slurp wl-clipboard zenity ffmpeg NetworkManager \
     network-manager-applet wireplumber pavucontrol blueman brightnessctl playerctl \
     lm_sensors xorg-x11-drv-nvidia-cuda curl python3 qt6ct papirus-icon-theme sddm
 ```

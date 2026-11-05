@@ -341,6 +341,10 @@ hl.bind(mainMod .. " + " .. "Q", hl.dsp.window.close())
 
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "E", hl.dsp.exit())
 
+-- pgrep guard: pressing the bind again (or anything re-triggering it) while hyprlock is
+-- already running must not spawn a second instance on top of the first.
+hl.bind(mainMod .. " + " .. "L", hl.dsp.exec_cmd("pgrep -x hyprlock || hyprlock"))
+
 hl.bind(mainMod .. " + " .. "F", hl.dsp.window.fullscreen())
 
 hl.bind(mainMod .. " + " .. "V", hl.dsp.window.float())
